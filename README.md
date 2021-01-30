@@ -1,4 +1,4 @@
-# RSOM vessel segmentation based feature extraction
+# RSOM vessel feature extraction
 <img src="./images/metric_graph.png" title="Metric graph in ParaView." height="200"/> 
 
 ## Preface
@@ -92,9 +92,8 @@ Let G be the metric graph and M be the vessel segmentation mask.
 
 [[4]]()TODO
 
-####TODO
+##TODO
 - [ ] add diabetes classifier
 - [ ] rename features 
 - [ ] feature selection
-- [ ] add LayNet + VesNet model
 - [ ] add example output
