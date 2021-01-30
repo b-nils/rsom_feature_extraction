@@ -23,19 +23,18 @@ The main python dependencies are
 
 However, for a complete list, see and run
 
-`pip install -r requirements.txt`
+`$ pip install -r requirements.txt`
 
 ## Usage
 In `./data/input` there are example matlab files, which serve as input.
 Files must follow a naming scheme similar to `R_<datetime>_<letter-number identifier>_{LF,HF}.mat`. 
-If sample belongs to a patient with diabetes, letter-number identifier should contain "PAT" or "Pat".
 Surface files, if present, must be named `Surf_<datetime>.mat`.
 Currently there is no support for other input file types, however, writing a 
 wrapper for any needed file format can be done with little effort.
 
 To execute the feature extraction and the corresponding epidermis and vessel segmentation, run
 
-`$ python pipeline.py`
+`$ CUDA_VISIBLE_DEVICES=X python pipeline.py`
 
 If you want to change input and output files, or use cpu for
 computation, edit `pipeline.py` accordingly.
@@ -96,4 +95,4 @@ Let G be the metric graph and M be the vessel segmentation mask.
 - [ ] add diabetes classifier
 - [ ] rename features 
 - [ ] feature selection
-- [ ] add example output
+- [ ] add example input/output
