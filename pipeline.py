@@ -331,7 +331,7 @@ def vessel_pipeline(dirs,
         layerseg = nib.load(str(image_fn)).get_fdata()
         epidermis_width = layerseg.sum()
         epidermis_widths.append(epidermis_width)
-    df.insert(0, "epidermis_width", epidermis_widths)
+    df.insert(0, "epidermis_volume", epidermis_widths)
 
     # drop rows of samples, which have been detected as noise
     df = df.dropna()
@@ -360,6 +360,6 @@ if __name__ == '__main__':
                     device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'),
                     # pattern=['20200101000000'],  # if list, use these patterns
                     # otherwise whole directory
-                    divs=(1, 1, 1),
+                    divs=(1, 1, 2),
                     delete_tmp=False,
                     n_jobs=15)
