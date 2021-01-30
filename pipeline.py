@@ -44,7 +44,7 @@ def vessel_pipeline(dirs,
     # PREPARING PIPELINE
     ###################################################################
     print('----------------------------------------')
-    print('Preparing pipeline...')
+    print('Preparing pipeline ...')
     print('----------------------------------------')
 
     if dirs is None:
@@ -104,7 +104,7 @@ def vessel_pipeline(dirs,
     filenameLF_LIST = [el for el in all_files if el[-6:] == 'LF.mat']
 
     print('\n----------------------------------------')
-    print('Starting vessel segmentation pipeline...')
+    print('Starting vessel segmentation pipeline ...')
     print('----------------------------------------')
 
     print('Device is', device)
@@ -113,7 +113,7 @@ def vessel_pipeline(dirs,
         print(fl.replace('LF.mat', ' {LF.mat, HF.mat}'))
 
     print('\n----------------------------------------')
-    print('Preprocessing for epidermis segmentation...')
+    print('Preprocessing for epidermis segmentation ...')
     print('----------------------------------------')
 
     for idx, filenameLF in tqdm(enumerate(filenameLF_LIST), total=num_samples):
@@ -138,7 +138,7 @@ def vessel_pipeline(dirs,
     # LAYER SEGMENTATION
     ###################################################################
     print('\n----------------------------------------')
-    print('Segmenting epidermis...')
+    print('Segmenting epidermis ...')
     print('----------------------------------------')
 
     LayerNetInstance = LayerNetBase(dirs={'model': dirs['laynet_model'],
@@ -153,7 +153,7 @@ def vessel_pipeline(dirs,
     # PREPROCESSING FOR VESSEL SEGMENTATION
     ###################################################################
     print('\n----------------------------------------')
-    print('Preprocessing for vessel segmentation...')
+    print('Preprocessing for vessel segmentation ...')
     print('----------------------------------------')
 
     for idx, filenameLF in tqdm(enumerate(filenameLF_LIST), total=num_samples):
@@ -177,7 +177,7 @@ def vessel_pipeline(dirs,
     # VESSEL SEGMENTATION
     ###################################################################
     print('\n----------------------------------------')
-    print('Segmenting vessels...')
+    print('Segmenting vessels ...')
     print('----------------------------------------')
 
     _dirs = {'train': '',
@@ -237,7 +237,7 @@ def vessel_pipeline(dirs,
     # VESSAP FEATURE EXTRACTION
     ###################################################################
     print('\n----------------------------------------')
-    print('Extrating vesSAP features...')
+    print('Extrating vesSAP features ...')
     print('----------------------------------------')
     # extract and vesSAP features
     filenames = pathlib.Path(path_tmp_vesselseg_out).glob("*")
@@ -261,7 +261,7 @@ def vessel_pipeline(dirs,
     if len(filenames) < n_jobs:
         n_jobs = len(filenames)
     print('\n----------------------------------------')
-    print(f'Reconstructing metric graph with {n_jobs} job(s)...')
+    print(f'Reconstructing metric graph with {n_jobs} job(s) ...')
     print('----------------------------------------')
     print('This may take a while ;)')
 
@@ -284,7 +284,7 @@ def vessel_pipeline(dirs,
     # EXTRACT PYRADIOMICS FEATRUES
     ###################################################################
     print('\n----------------------------------------')
-    print('Extracting pyradiomics features...')
+    print('Extracting pyradiomics features ...')
     print('----------------------------------------')
     # extract pyradiomics and construct Pandas dataframe
     image_filenames = pathlib.Path(path_tmp_vesselseg_prep).glob("*_rgb.nii.gz")
@@ -314,7 +314,7 @@ def vessel_pipeline(dirs,
     # CONSTRUCT FEATURE CSV
     ###################################################################
     print('\n----------------------------------------')
-    print('Construct feature csv...')
+    print('Extracting graph features and creating csv ...')
     print('----------------------------------------')
     # extract features from metric graph
     metric_graph_features_df = metric_graph.get_features(path_tmp_metric_graph)
