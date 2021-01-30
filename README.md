@@ -3,7 +3,7 @@
 
 ## Preface
 The repository was build on top of [this](https://github.com/stefanhige/pytorch-rsom-seg) implementation.
-It contains the python source code to create a metric graph and extract features describing the topology of vessels from raster-scan optoacoustic mesoscopy (RSOM) data ([Aguirre J. et al., _Precision assessment of label-free psoriasis biomarkers with ultra-broadband optoacoustic mesoscopy_, Nat Biomed Eng 1, 0068 (2017) ](https://www.nature.com/articles/s41551-017-0068)).
+It contains the python source code to create a [metric graph](https://www.jmlr.org/papers/volume15/lecci14a/lecci14a.pdf) and extract features based on the segmentation of vessels from raster-scan optoacoustic mesoscopy (RSOM) data ([Aguirre J. et al., _Precision assessment of label-free psoriasis biomarkers with ultra-broadband optoacoustic mesoscopy_, Nat Biomed Eng 1, 0068 (2017)](https://www.nature.com/articles/s41551-017-0068)).
 
 ## Setup
 
@@ -92,7 +92,7 @@ Let G be the metric graph and M be the vessel segmentation mask.
 
 [[4]]()TODO
 
-##TODO
+#### TODO
 - [ ] add diabetes classifier
 - [ ] rename features 
 - [ ] feature selection
