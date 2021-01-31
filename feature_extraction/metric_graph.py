@@ -680,10 +680,17 @@ def get_features(path_to_json_dir, h_params=None):
         ###################################################################
         # NOISE DETECTION
         ###################################################################
+        # find node with lowest z value, excluding nodes of very small components (10)
         smallest_z = shape[2]
-        for p in G.nodes:
-            if p[2] < smallest_z:
-                smallest_z = p[2]
+        for c in nx.connected_components(G):
+            distance = 0
+            g = G.subgraph(c)
+            for edge in g.edges:
+                distance += compute_distance(edge[0], edge[1])
+            if distance > 10:
+                for p in g.nodes:
+                    if p[2] < smallest_z:
+                        smallest_z = p[2]
 
         lower_length = 0
         total_length = 0
