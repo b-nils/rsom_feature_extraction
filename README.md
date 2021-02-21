@@ -87,7 +87,7 @@ Let G be the metric graph and M be the vessel segmentation mask.
 
 [[2]](https://arxiv.org/abs/1803.09340) Tetteh G. et al., _DeepVesselNet: Vessel Segmentation, Centerline Prediction, and Bifurcation Detection in 3-D Angiographic Volumes._
 
-[[3]](https://www.nature.com/articles/s41551-017-0068) Aguirre J. et al. _Precision assessment of label-free psoriasis biomarkers with ultra-broadband optoacoustic mesoscopy_, Nat Biomed Eng 1, 0068 (2017)_
+[[3]](https://www.nature.com/articles/s41551-017-0068) Aguirre J. et al. _Precision assessment of label-free psoriasis biomarkers with ultra-broadband optoacoustic mesoscopy, Nat Biomed Eng 1, 0068 (2017)_
 
 [[4]](https://www.biorxiv.org/content/10.1101/613257v1) Mihail Ivilinov Todorov, Johannes C. Paetzold, _Automated analysis of whole brain vasculature using machine learning_
 
