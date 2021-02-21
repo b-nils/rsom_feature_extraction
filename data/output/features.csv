@@ -1,0 +1,2 @@
+filename,mg_length,#bifurcations,#nodes,#edges,#components,#nodes_per_component,length_per_component,giant_component_length,average_path_length,density,degree_assortativity_coefficient,num_cycles,bin1,bin2,bin3,bin4,avg_radius,avg_radius_giant,len_minimum_spanning_tree,maximum_2d_diameter_column,maximum_2d_diameter_row,maximum_2d_diameter_slice,maximum_3d_diameter,sphericity,surface_volume_ratio,voxel_volume,is_patient,epidermis_width
+R_202101311949_PAT01,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
