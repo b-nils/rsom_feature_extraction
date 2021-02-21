@@ -639,7 +639,6 @@ def get_features(path_to_json_dir, h_params=None):
         h_params = dict()
         h_params["min_component_length"] = 10
         h_params["min_total_length"] = 1000
-        h_params["max_length_lower_part"] = 600
 
     noisy_samples = []
     path = pathlib.Path(path_to_json_dir)
@@ -653,7 +652,7 @@ def get_features(path_to_json_dir, h_params=None):
                 "bin4", "avg_radius", "avg_radius_giant",
                 "len_minimum_spanning_tree"]
 
-    columns = ["filename", "is_patient"] + features
+    columns = ["filename"] + features
 
     rows = []
 
@@ -664,9 +663,9 @@ def get_features(path_to_json_dir, h_params=None):
         with open(f) as f_in:
             graph = json.load(f_in)
 
-        shape = graph["shape"]
         nodes = [tuple(n) for n in graph["points"]]
         edges = [[tuple(e) for e in edge[:2]] + [edge[2]] for edge in graph["edges"]]
+        shape = graph["shape"]
 
         if len(nodes) == 0:
             noisy_samples.append("_".join(f.name.split("_")[:3]))
@@ -698,12 +697,6 @@ def get_features(path_to_json_dir, h_params=None):
             total_length += compute_distance(edge[0], edge[1])
             if smallest_z + 50 > edge[0][2] >= smallest_z <= edge[1][2] < smallest_z + 50:
                 lower_length += compute_distance(edge[0], edge[1])
-
-        # remove samples with reflection in lower part
-        if lower_length > h_params["max_length_lower_part"]:
-            noisy_samples.append("_".join(f.name.split("_")[:3]))
-            print(f.name, "removed due to reflection in lower part")
-            continue
 
         # remove samples with a total length smaller than h_params["min_total_length"]
         if total_length < h_params["min_total_length"]:
@@ -780,7 +773,7 @@ def get_features(path_to_json_dir, h_params=None):
         avg_radius = np.array([e[2]["radius"] for e in G_clean.edges(data=True)]).mean()
 
         rows.append(
-            ["_".join(f.name.split("_")[:3]), "PAT" in f.name or "Pat" in f.name, length, num_bifurcations, num_nodes,
+            ["_".join(f.name.split("_")[:3]), length, num_bifurcations, num_nodes,
              num_edges, num_components, num_nodes_per_component, length_per_component, giant_component_length,
              avg_path_length, density, degree_assortativity_coefficient, num_cycles,
              bin1, bin2, bin3, bin4, avg_radius, avg_rads_giant, size_minimum_spanning_tree])

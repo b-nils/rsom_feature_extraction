@@ -369,7 +369,7 @@ class RsomVessel(Rsom):
 
                 # additional fixed pixel offset
                 # due to noise (reflection or poorly cut epidermis + 20)
-                offs = 30  # 10
+                offs = 10
                 layer_end += offs
             else:
                 print("WARNING:  Could not determine valid epidermis layer.")
@@ -382,13 +382,11 @@ class RsomVessel(Rsom):
         else:
             raise NotImplementedError
 
-        layer_begin = layer_end + 150
 
         # print('Removing epidermis. Cutting at', layer_end)
 
-        # cut away epidermis and lower part, so that every volume has same dimensions
-        self.Vl = self.Vl[layer_end:layer_begin, :, :]
-        self.Vh = self.Vh[layer_end:layer_begin, :, :]
+        self.Vl = self.Vl[layer_end:, :, :]
+        self.Vh = self.Vh[layer_end:, :, :]
 
         self.layer_end = layer_end
 
@@ -449,7 +447,7 @@ class RsomVisualization(Rsom):
         self.axis_P = axis
         self.P_seg = mip
 
-    def merge_mip_ves(self, do_plot=True):
+    def merge_mip_ves(self, z, do_plot=True):
         '''
         merge MIP and MIP of segmentation with feeding into blue channel
         '''
@@ -465,6 +463,12 @@ class RsomVisualization(Rsom):
         self.P_overlay = self.P.copy().astype(np.float32)
         self.P_overlay[:, :, 2] += blue
         self.P_overlay[self.P > 255] = 255
+
+        # mark ROI in pink
+        roi = np.zeros_like(self.P_seg)
+        roi[z[0]:z[1], :] = 1
+        self.P_overlay = _overlay(self.P_overlay, roi.astype(np.float32), colour=[255, 0, 255],
+                                  alpha=0.7)
 
         if do_plot:
             plt.figure()
