@@ -56,7 +56,7 @@ Let G be the metric graph and M be the vessel segmentation mask.
 
 |Feature|Description|
 |-------|-----------|
-|epidermis_volume|Volume of the epidermis in pixel.|
+|epidermis_width|Width of the epidermis in pixel.|
 |mg_length|Sum of the length of edges of the G in pixel.|
 |#bifurcations|Number of nodes of G with a degree higher than 2.|
 |#nodes|Number of nodes of G.|
@@ -87,13 +87,13 @@ Let G be the metric graph and M be the vessel segmentation mask.
 
 [[2]](https://arxiv.org/abs/1803.09340) Tetteh G. et al., _DeepVesselNet: Vessel Segmentation, Centerline Prediction, and Bifurcation Detection in 3-D Angiographic Volumes._
 
-[[3]](https://www.nature.com/articles/s41551-017-0068) Aguirre J. et al. _Precision assessment of label-free psoriasis biomarkers with ultra-broadband optoacoustic mesoscopy_, Nat Biomed Eng 1, 0068 (2017)
+[[3]](https://www.nature.com/articles/s41551-017-0068) Aguirre J. et al. _Precision assessment of label-free psoriasis biomarkers with ultra-broadband optoacoustic mesoscopy_, Nat Biomed Eng 1, 0068 (2017)_
 
-[[4]](https://www.biorxiv.org/content/10.1101/613257v1) Mihail Ivilinov Todorov, Johannes C. Paetzold, _Automated analysis of whole brain vasculature using machine learning
+[[4]](https://www.biorxiv.org/content/10.1101/613257v1) Mihail Ivilinov Todorov, Johannes C. Paetzold, _Automated analysis of whole brain vasculature using machine learning_
 
-[[5]](https://arxiv.org/abs/2007.05324) Stefan Gerl, Johannes C. Paetzold, _A distance-based loss for smooth and continuous skin layer segmentation in optoacoustic images 
+[[5]](https://arxiv.org/abs/2007.05324) Stefan Gerl, Johannes C. Paetzold, _A distance-based loss for smooth and continuous skin layer segmentation in optoacoustic images _
 
-[[6]](https://arxiv.org/abs/2003.07311) Suprosanna Shit, Johannes C. Paetzold, _clDice -- a Topology-Preserving Loss Function for Tubular Structure Segmentation
+[[6]](https://arxiv.org/abs/2003.07311) Suprosanna Shit, Johannes C. Paetzold, _clDice -- a Topology-Preserving Loss Function for Tubular Structure Segmentation_
 
 #### TODO
 - [ ] add diabetes classifier
