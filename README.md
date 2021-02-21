@@ -91,7 +91,7 @@ Let G be the metric graph and M be the vessel segmentation mask.
 
 [[4]](https://www.biorxiv.org/content/10.1101/613257v1) Mihail Ivilinov Todorov, Johannes C. Paetzold, _Automated analysis of whole brain vasculature using machine learning_
 
-[[5]](https://arxiv.org/abs/2007.05324) Stefan Gerl, Johannes C. Paetzold, _A distance-based loss for smooth and continuous skin layer segmentation in optoacoustic images _
+[[5]](https://arxiv.org/abs/2007.05324) Stefan Gerl, Johannes C. Paetzold, _A distance-based loss for smooth and continuous skin layer segmentation in optoacoustic images_
 
 [[6]](https://arxiv.org/abs/2003.07311) Suprosanna Shit, Johannes C. Paetzold, _clDice -- a Topology-Preserving Loss Function for Tubular Structure Segmentation_
 
