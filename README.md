@@ -74,7 +74,7 @@ and the corresponding `*.vtk` files can be found in `./data/output/visualization
 Furthermore, all intermediate results are placed in `./data/output/tmp`.
 If one wishes to remove intermediate results, `pipeline.py` can be adjusted accordingly. For reproducibility we write the hyperparameters being used and the removed sample names to `./data/output/<<TIMESTAMP>>.log`.
 
-###Main features
+### Main features
 
 |Feature|Description|
 |-------|-----------|
@@ -85,7 +85,7 @@ If one wishes to remove intermediate results, `pipeline.py` can be adjusted acco
 |total_blood_volume|Volume of `V` in micrometers³.|
 |epidermis_width|Average width in z-direction of `E` in micrometers.|
 
-###Experimental features
+### Experimental features
 
 | Feature                          | Description                                                                                                                                                                                                                                                                                                      |
 |:---------------------------------|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
