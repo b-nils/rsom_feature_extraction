@@ -60,7 +60,7 @@ The feature extraction requires a set of predefined hyperparameters, which can b
 | min_end_branch_length      | We remove ending branches of `G` smaller than `min_end_branch_length` pixel to capture the actual underlying topology better.                                                                             |
 | min_total_length           | Sampels with a total metric graph length smaller than `min_total_length` pixel are automatically excluded from the feature extraction.                                                                    |
 | show_roi                   | Whether to mark the ROI in pink color.                                                                                                                                                                    |
-| show_preprocessing_results | Whether to visualize preprocessed V or untouched V.                                                                                                                                                       |
+| show_preprocessing_results | Whether to visualize preprocessed `V` or untouched `V`.                                                                                                                                                       |
 
 
 
@@ -81,7 +81,7 @@ If one wishes to remove intermediate results, `pipeline.py` can be adjusted acco
 |total_vessel_length|Sum of the length of edges of `G` in pixel.|
 |small_vessel_length|Sum of the length of edges of `G` in pixel having an average radius smaller than 2.5 pixels.|
 |large_vessel_length|Sum of the length of edges of `G` in pixel having an average radius greater than or equal to 2.5 pixels.|
-|#vessel_bifurcations|Number of nodes of G with a degree higher than 2.|
+|#vessel_bifurcations|Number of nodes of `G` with a degree higher than 2.|
 |total_blood_volume|Volume of `V` in micrometers³.|
 |epidermis_width|Average width in z-direction of `E` in micrometers.|
 
