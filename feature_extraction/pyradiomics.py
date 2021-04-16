@@ -19,16 +19,13 @@ def get_pyradiomics_features(i_fn, m_fn):
     mask = reader.Execute()
     shape = rs.RadiomicsShape(image, mask)
 
-    features["voxel_volume"] = shape.getVoxelVolumeFeatureValue()
+    # voxel volume in micrometer³
+    features["total_blood_volume"] = (((shape.getVoxelVolumeFeatureValue() / 12) / 12) / 3)
 
-    if features["voxel_volume"] == 0:
+    # avoid division by zero
+    if features["total_blood_volume"] == 0:
         return features
 
     features["surface_volume_ratio"] = shape.getSurfaceVolumeRatioFeatureValue()
-    features["sphericity"] = shape.getSphericityFeatureValue()
-    features["maximum_3d_diameter"] = shape.getMaximum3DDiameterFeatureValue()
-    features["maximum_2d_diameter_slice"] = shape.getMaximum2DDiameterSliceFeatureValue()
-    features["maximum_2d_diameter_column"] = shape.getMaximum2DDiameterColumnFeatureValue()
-    features["maximum_2d_diameter_row"] = shape.getMaximum2DDiameterRowFeatureValue()
 
     return features

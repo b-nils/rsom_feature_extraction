@@ -18,6 +18,8 @@ from skimage import morphology
 import multiprocessing
 import pandas as pd
 import shutil
+from datetime import datetime
+import json
 
 from prep import Rsom, RsomVessel
 from utils import get_unique_filepath
@@ -106,201 +108,206 @@ def vessel_pipeline(dirs,
     ###################################################################
     # PREPROCESSING FOR LAYER SEGMENTATION
     ###################################################################
-    filenameLF_LIST = [el for el in all_files if el[-6:] == 'LF.mat']
+    if 0:
+        filenameLF_LIST = [el for el in all_files if el[-6:] == 'LF.mat']
 
-    print('\n----------------------------------------')
-    print('Starting vessel segmentation pipeline ...')
-    print('----------------------------------------')
+        print('\n----------------------------------------')
+        print('Starting vessel segmentation pipeline ...')
+        print('----------------------------------------')
 
-    print('Device is', device)
-    print('Files to be processed:')
-    for fl in filenameLF_LIST:
-        print(fl.replace('LF.mat', ' {LF.mat, HF.mat}'))
+        print('Device is', device)
+        print('Files to be processed:')
+        for fl in filenameLF_LIST:
+            print(fl.replace('LF.mat', ' {LF.mat, HF.mat}'))
 
-    print('\n----------------------------------------')
-    print('Preprocessing for epidermis segmentation ...')
-    print('----------------------------------------')
+        print('\n----------------------------------------')
+        print('Preprocessing for epidermis segmentation ...')
+        print('----------------------------------------')
 
-    for idx, filenameLF in tqdm(enumerate(filenameLF_LIST), total=num_samples):
-        filenameHF = filenameLF.replace('LF.mat', 'HF.mat')
+        for idx, filenameLF in tqdm(enumerate(filenameLF_LIST), total=num_samples):
+            filenameHF = filenameLF.replace('LF.mat', 'HF.mat')
 
-        # extract datetime
-        idx_1 = filenameLF.find('_')
-        idx_2 = filenameLF.find('_', idx_1 + 1)
-        filenameSurf = 'Surf' + filenameLF[idx_1:idx_2 + 1] + '.mat'
+            # extract datetime
+            idx_1 = filenameLF.find('_')
+            idx_2 = filenameLF.find('_', idx_1 + 1)
+            filenameSurf = 'Surf' + filenameLF[idx_1:idx_2 + 1] + '.mat'
 
-        fullpathHF = os.path.join(dirs['input'], filenameHF)
-        fullpathLF = os.path.join(dirs['input'], filenameLF)
-        fullpathSurf = os.path.join(dirs['input'], filenameSurf)
+            fullpathHF = os.path.join(dirs['input'], filenameHF)
+            fullpathLF = os.path.join(dirs['input'], filenameLF)
+            fullpathSurf = os.path.join(dirs['input'], filenameSurf)
 
-        Sample = Rsom(fullpathLF, fullpathHF, fullpathSurf)
+            Sample = Rsom(fullpathLF, fullpathHF, fullpathSurf)
 
-        Sample.prepare()
+            Sample.prepare()
 
-        Sample.save_volume(path_tmp_layerseg_prep, fstr='rgb')
+            Sample.save_volume(path_tmp_layerseg_prep, fstr='rgb')
 
-    ###################################################################
-    # LAYER SEGMENTATION
-    ###################################################################
-    print('\n----------------------------------------')
-    print('Segmenting epidermis ...')
-    print('----------------------------------------')
+        ###################################################################
+        # LAYER SEGMENTATION
+        ###################################################################
+        print('\n----------------------------------------')
+        print('Segmenting epidermis ...')
+        print('----------------------------------------')
 
-    LayerNetInstance = LayerNetBase(dirs={'model': dirs['laynet_model'],
-                                          'pred': path_tmp_layerseg_prep,
-                                          'out': path_tmp_layerseg_out},
-                                    model_depth=h_params["segmentation"]["laynet_depth"],
-                                    device=device)
+        LayerNetInstance = LayerNetBase(dirs={'model': dirs['laynet_model'],
+                                              'pred': path_tmp_layerseg_prep,
+                                              'out': path_tmp_layerseg_out},
+                                        model_depth=h_params["segmentation"]["laynet_depth"],
+                                        device=device)
 
-    LayerNetInstance.predict()
+        LayerNetInstance.predict()
 
-    ###################################################################
-    # PREPROCESSING FOR VESSEL SEGMENTATION
-    ###################################################################
-    print('\n----------------------------------------')
-    print('Preprocessing for vessel segmentation ...')
-    print('----------------------------------------')
+        ###################################################################
+        # PREPROCESSING FOR VESSEL SEGMENTATION
+        ###################################################################
+        print('\n----------------------------------------')
+        print('Preprocessing for vessel segmentation ...')
+        print('----------------------------------------')
 
-    for idx, filenameLF in tqdm(enumerate(filenameLF_LIST), total=num_samples):
-        filenameHF = filenameLF.replace('LF.mat', 'HF.mat')
+        for idx, filenameLF in tqdm(enumerate(filenameLF_LIST), total=num_samples):
+            filenameHF = filenameLF.replace('LF.mat', 'HF.mat')
 
-        # extract datetime
-        idx_1 = filenameLF.find('_')
-        idx_2 = filenameLF.find('_', idx_1 + 1)
-        filenameSurf = 'Surf' + filenameLF[idx_1:idx_2 + 1] + '.mat'
+            # extract datetime
+            idx_1 = filenameLF.find('_')
+            idx_2 = filenameLF.find('_', idx_1 + 1)
+            filenameSurf = 'Surf' + filenameLF[idx_1:idx_2 + 1] + '.mat'
 
-        fullpathHF = os.path.join(dirs['input'], filenameHF)
-        fullpathLF = os.path.join(dirs['input'], filenameLF)
-        fullpathSurf = os.path.join(dirs['input'], filenameSurf)
+            fullpathHF = os.path.join(dirs['input'], filenameHF)
+            fullpathLF = os.path.join(dirs['input'], filenameLF)
+            fullpathSurf = os.path.join(dirs['input'], filenameSurf)
 
-        Sample = RsomVessel(fullpathLF, fullpathHF, fullpathSurf)
+            Sample = RsomVessel(fullpathLF, fullpathHF, fullpathSurf)
 
-        Sample.prepare(path_tmp_layerseg_out, mode='pred', fstr='pred.nii.gz')
-        Sample.save_volume(path_tmp_vesselseg_prep, fstr='v_rgb')
+            Sample.prepare(path_tmp_layerseg_out, mode='pred', fstr='pred.nii.gz')
+            Sample.save_volume(path_tmp_vesselseg_prep, fstr='v_rgb')
 
-    ###################################################################
-    # VESSEL SEGMENTATION
-    ###################################################################
-    print('\n----------------------------------------')
-    print('Segmenting vessels ...')
-    print('----------------------------------------')
+        ###################################################################
+        # VESSEL SEGMENTATION
+        ###################################################################
+        print('\n----------------------------------------')
+        print('Segmenting vessels ...')
+        print('----------------------------------------')
 
-    _dirs = {'train': '',
-             'eval': '',
-             'model': dirs['vesnet_model'],
-             'pred': path_tmp_vesselseg_prep,
-             'out': path_tmp_vesselseg_out}
+        _dirs = {'train': '',
+                 'eval': '',
+                 'model': dirs['vesnet_model'],
+                 'pred': path_tmp_vesselseg_prep,
+                 'out': path_tmp_vesselseg_out}
 
-    VesNetInstance = VesNetBase(device=device,
-                                dirs=_dirs,
-                                divs=divs,
-                                ves_probability=h_params["segmentation"]["ves_probability"])
+        VesNetInstance = VesNetBase(device=device,
+                                    dirs=_dirs,
+                                    divs=divs,
+                                    ves_probability=h_params["segmentation"]["ves_probability"])
 
-    VesNetInstance.predict(use_best=False,
-                           save_ppred=True)
+        VesNetInstance.predict(use_best=False,
+                               save_ppred=True)
 
-    # if save_ppred==True   ^
-    # we need to move the probability tensors to another folder
-    files = [f for f in os.listdir(path_tmp_vesselseg_out) if 'ppred' in f]
+        # if save_ppred==True   ^
+        # we need to move the probability tensors to another folder
+        files = [f for f in os.listdir(path_tmp_vesselseg_out) if 'ppred' in f]
 
-    for f in files:
-        shutil.move(os.path.join(path_tmp_vesselseg_out, f),
-                    os.path.join(path_tmp_vesselseg_prob, f))
+        for f in files:
+            shutil.move(os.path.join(path_tmp_vesselseg_out, f),
+                        os.path.join(path_tmp_vesselseg_prob, f))
 
-    ###################################################################
-    # VESSEL VISUALIZATION
-    ###################################################################
-    _dirs = {'in': dirs['input'],
-             'layer': path_tmp_layerseg_out,
-             'vessel': path_tmp_vesselseg_out,
-             'out': path_visualization_vessels}
+        ###################################################################
+        # VESSEL VISUALIZATION
+        ###################################################################
+        _dirs = {'in': dirs['input'],
+                 'layer': path_tmp_layerseg_out,
+                 'vessel': path_tmp_vesselseg_out,
+                 'out': path_visualization_vessels}
 
-    mip_label_overlay(None, _dirs, roi_z=h_params["post_segmentation"]["roi_z"], plot_epidermis=True)
+        mip_label_overlay(None,
+                          _dirs,
+                          post_processing_params=h_params["post_segmentation"],
+                          visualization_params=h_params["visualization"],
+                          plot_epidermis=True)
 
-    ###################################################################
-    # POST SEGMENTATION PROCESSING
-    ###################################################################
-    print('\n----------------------------------------')
-    print('Post processing vessel segmentation mask ...')
-    print('----------------------------------------')
-    image_filenames = pathlib.Path(path_tmp_vesselseg_prep).glob("*_rgb.nii.gz")
-    EPIDERMIS_OFFSET = h_params["post_segmentation"]["epidermis_offset"]
-    ROI_Z = h_params["post_segmentation"]["roi_z"]
-    for i_fn in tqdm(image_filenames, total=num_samples):
-        mask_filenames = pathlib.Path(path_tmp_vesselseg_out).glob('*_pred.nii.gz')
-        m_fn = [m_fn for m_fn in mask_filenames if "_".join(i_fn.name.split("_")[:3]) in m_fn.name][0]
+        ###################################################################
+        # POST SEGMENTATION PROCESSING
+        ###################################################################
+        print('\n----------------------------------------')
+        print('Post processing vessel segmentation mask ...')
+        print('----------------------------------------')
+        image_filenames = pathlib.Path(path_tmp_vesselseg_prep).glob("*_rgb.nii.gz")
+        EPIDERMIS_OFFSET = h_params["post_segmentation"]["epidermis_offset"]
+        ROI_Z = h_params["post_segmentation"]["roi_z"]
+        for i_fn in tqdm(image_filenames, total=num_samples):
+            mask_filenames = pathlib.Path(path_tmp_vesselseg_out).glob('*_pred.nii.gz')
+            m_fn = [m_fn for m_fn in mask_filenames if "_".join(i_fn.name.split("_")[:3]) in m_fn.name][0]
+            fmt = '.nii.gz'
+            # cut input image
+            img = nib.load(str(i_fn)).get_data()
+            img_cut = img[EPIDERMIS_OFFSET:EPIDERMIS_OFFSET+ROI_Z, :, :]
+            prefix = i_fn.name.split('.')[0]
+            suffix = "_cut"
+            img_cut_nifti = nib.Nifti1Image(img_cut, np.eye(4))
+            i_cut_fn = prefix + suffix + fmt
+            nib.save(img_cut_nifti,  os.path.join(path_tmp_vesselseg_prep_cut, i_cut_fn))
+            # cut mask
+            mask = nib.load(str(m_fn)).get_data()
+            mask_cut = mask[EPIDERMIS_OFFSET:EPIDERMIS_OFFSET+ROI_Z, :, :]
+            prefix = m_fn.name.split('.')[0]
+            suffix = "_cut"
+            mask_cut_nifti = nib.Nifti1Image(mask_cut, np.eye(4))
+            m_cut_fn = prefix + suffix + fmt
+            nib.save(mask_cut_nifti, os.path.join(path_tmp_vesselseg_out_cut, m_cut_fn))
+            # clean mask
+            mask_cut_clean = morphology.remove_small_objects(mask_cut.astype(bool),
+                                                             h_params["post_segmentation"]["min_size"]).astype(float)
+            prefix = m_fn.name.split('.')[0]
+            suffix = "_cut_clean"
+            mask_cut_clean_nifti = nib.Nifti1Image(mask_cut_clean, np.eye(4))
+            m_cut_clean_fn = prefix + suffix + fmt
+            nib.save(mask_cut_clean_nifti, os.path.join(path_tmp_vesselseg_out_cut_clean, m_cut_clean_fn))
+
+        ###################################################################
+        # SKELETA EXTRACTION
+        ###################################################################
+        print('\n----------------------------------------')
+        print('Extracting skeleta ...')
+        print('----------------------------------------')
+        # extract and vesSAP features
+        filenames = pathlib.Path(path_tmp_vesselseg_out_cut).glob("*")
+        rad_suffix = "_rads"
         fmt = '.nii.gz'
-        # cut input image
-        img = nib.load(str(i_fn)).get_data()
-        img_cut = img[EPIDERMIS_OFFSET:EPIDERMIS_OFFSET+ROI_Z, :, :]
-        prefix = i_fn.name.split('.')[0]
-        suffix = "_cut"
-        img_cut_nifti = nib.Nifti1Image(img_cut, np.eye(4))
-        i_cut_fn = prefix + suffix + fmt
-        nib.save(img_cut_nifti,  os.path.join(path_tmp_vesselseg_prep_cut, i_cut_fn))
-        # cut mask
-        mask = nib.load(str(m_fn)).get_data()
-        mask_cut = mask[EPIDERMIS_OFFSET:EPIDERMIS_OFFSET+ROI_Z, :, :]
-        prefix = m_fn.name.split('.')[0]
-        suffix = "_cut"
-        mask_cut_nifti = nib.Nifti1Image(mask_cut, np.eye(4))
-        m_cut_fn = prefix + suffix + fmt
-        nib.save(mask_cut_nifti, os.path.join(path_tmp_vesselseg_out_cut, m_cut_fn))
-        # clean mask
-        mask_cut_clean = morphology.remove_small_objects(mask_cut.astype(bool),
-                                                         h_params["post_segmentation"]["min_size"]).astype(float)
-        prefix = m_fn.name.split('.')[0]
-        suffix = "_cut_clean"
-        mask_cut_clean_nifti = nib.Nifti1Image(mask_cut_clean, np.eye(4))
-        m_cut_clean_fn = prefix + suffix + fmt
-        nib.save(mask_cut_clean_nifti, os.path.join(path_tmp_vesselseg_out_cut_clean, m_cut_clean_fn))
+        for fn in tqdm(filenames, total=num_samples):
+            fn = str(fn)
+            data = feats.preprocess_data(feats_utils.get_itk_array(fn))
+            img = feats_utils.get_itk_image(fn)
+            prefix = os.path.basename(fn).split('.')[0]
+            cen = feats.extract_centerlines(segmentation=data)
+            rad = feats.extract_radius(segmentation=data, centerlines=cen)
+            ofn = os.path.join(path_tmp_ves_sap, prefix + rad_suffix + fmt)
+            feats.save_data(data=rad, img=img, filename=ofn)
 
-    ###################################################################
-    # VESSAP FEATURE EXTRACTION
-    ###################################################################
-    print('\n----------------------------------------')
-    print('Extrating vesSAP features ...')
-    print('----------------------------------------')
-    # extract and vesSAP features
-    filenames = pathlib.Path(path_tmp_vesselseg_out_cut).glob("*")
-    rad_suffix = "_rads"
-    fmt = '.nii.gz'
-    for fn in tqdm(filenames, total=num_samples):
-        fn = str(fn)
-        data = feats.preprocess_data(feats_utils.get_itk_array(fn))
-        img = feats_utils.get_itk_image(fn)
-        prefix = os.path.basename(fn).split('.')[0]
-        cen = feats.extract_centerlines(segmentation=data)
-        rad = feats.extract_radius(segmentation=data, centerlines=cen)
-        ofn = os.path.join(path_tmp_ves_sap, prefix + rad_suffix + fmt)
-        feats.save_data(data=rad, img=img, filename=ofn)
+        ###################################################################
+        # METRIC GRAPH RECONSTRUCTION
+        ###################################################################
+        path = pathlib.Path(f"{path_tmp_ves_sap}/*_rads.nii.gz")
+        filenames = list(sorted(pathlib.Path(path.parent).expanduser().glob(path.name)))
+        if len(filenames) < n_jobs:
+            n_jobs = len(filenames)
+        print('\n----------------------------------------')
+        print(f'Reconstructing metric graph with {n_jobs} job(s) ...')
+        print('----------------------------------------')
+        print('This may take a while ;)')
 
-    ###################################################################
-    # METRIC GRAPH RECONSTRUCTION
-    ###################################################################
-    path = pathlib.Path(f"{path_tmp_ves_sap}/*_rads.nii.gz")
-    filenames = list(sorted(pathlib.Path(path.parent).expanduser().glob(path.name)))
-    if len(filenames) < n_jobs:
-        n_jobs = len(filenames)
-    print('\n----------------------------------------')
-    print(f'Reconstructing metric graph with {n_jobs} job(s) ...')
-    print('----------------------------------------')
-    print('This may take a while ;)')
-
-    # split filenames by #workers to parallelize metric graph extraction
-    def split(a, n):
-        k, m = divmod(len(a), n)
-        return (a[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(n))
-    filenames = list(split(filenames, n_jobs))
-    processes = []
-    for i in range(n_jobs):
-        p = multiprocessing.Process(target=metric_graph.run_reconstruction, args=(filenames[i],
-                                                                                  path_visualization_metric_graph,
-                                                                                  path_tmp_metric_graph))
-        processes.append(p)
-        p.start()
-    for p in processes:
-        p.join()
+        # split filenames by #workers to parallelize metric graph extraction
+        def split(a, n):
+            k, m = divmod(len(a), n)
+            return (a[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(n))
+        filenames = list(split(filenames, n_jobs))
+        processes = []
+        for i in range(n_jobs):
+            p = multiprocessing.Process(target=metric_graph.run_reconstruction, args=(filenames[i],
+                                                                                      path_visualization_metric_graph,
+                                                                                      path_tmp_metric_graph))
+            processes.append(p)
+            p.start()
+        for p in processes:
+            p.join()
 
     ###################################################################
     # EXTRACT GRAPH FEATURES
@@ -309,13 +316,15 @@ def vessel_pipeline(dirs,
     print('Extracting graph features ...')
     print('----------------------------------------')
     # extract features from metric graph
-    metric_graph_features_df = metric_graph.get_features(path_tmp_metric_graph, h_params=h_params["metric_graph"])
+    metric_graph_features_df = metric_graph.get_features(path_tmp_metric_graph,
+                                                         path_visualization_metric_graph,
+                                                         h_params=h_params["metric_graph"])
 
     ###################################################################
-    # EXTRACT PYRADIOMICS FEATRUES
+    # EXTRACT VOLUMETRIC FEATRUES
     ###################################################################
     print('\n----------------------------------------')
-    print('Extracting pyradiomics features ...')
+    print('Extracting volumetric features ...')
     print('----------------------------------------')
     # extract pyradiomics and construct Pandas dataframe
     image_filenames = pathlib.Path(path_tmp_vesselseg_prep_cut).glob("*")
@@ -345,21 +354,23 @@ def vessel_pipeline(dirs,
     pyradiomics_df.to_csv(path_tmp_pyradiomics + "/pyradiomics.csv")
 
     ###################################################################
-    # EXTRACT EPIDERMIS_WIDTH
+    # EXTRACT EPIDERMAL FEATURES
     ###################################################################
     print('\n----------------------------------------')
-    print('Extracting epidermis width ...')
+    print('Extracting epidermal features ...')
     print('----------------------------------------')
     # extract minimal width of epidermis
-    layerseg_filenames = pathlib.Path(path_tmp_layerseg_out).glob("*.nii.gz")
-    columns = ["filename", "epidermis_width"]
+    layerseg_in_filenames = pathlib.Path(path_tmp_layerseg_prep).glob("*.nii.gz")
+    layerseg_out_filenames = pathlib.Path(path_tmp_layerseg_out).glob("*.nii.gz")
+    columns = ["filename", "epidermis_width", "epidermal_signal_density"]
     rows = []
-    for fn in tqdm(layerseg_filenames, total=num_samples):
-        layerseg = nib.load(str(fn)).get_fdata()
-        epdermis_zs = []
-        for i in range(layerseg.shape[2]):
-            epdermis_zs.append(layerseg[:, :, i].sum() / layerseg.shape[1])
-        rows.append(("_".join(fn.name.split("_")[:3]), min(epdermis_zs)))
+    for fn_in, fn_out in tqdm(zip(layerseg_in_filenames, layerseg_out_filenames), total=num_samples):
+        layerseg_in = nib.load(str(fn_in)).get_data()
+        layerseg_out = nib.load(str(fn_out)).get_fdata()
+        esd = ((layerseg_in["R"] + layerseg_in["G"]) * layerseg_out).sum() / layerseg_out.sum()
+        # compute average width of epidermis in micrometer
+        width = ((layerseg_out.sum() / layerseg_out.shape[0]) / layerseg_out.shape[1]) * 3
+        rows.append(("_".join(fn_out.name.split("_")[:3]), width, esd))
 
     epidermis_width_df = pd.DataFrame(rows, columns=columns)
     epidermis_width_df = epidermis_width_df.set_index('filename')
@@ -372,6 +383,7 @@ def vessel_pipeline(dirs,
         [metric_graph_features_df, pyradiomics_df, epidermis_width_df], axis=1)
 
     # drop rows of samples, which have been detected as noise
+    noisy_samples = pd.isnull(df).any(1).to_numpy().nonzero()
     df = df.dropna()
 
     # encode label
@@ -379,32 +391,52 @@ def vessel_pipeline(dirs,
 
     # save dict as csv
     df.to_csv(f"{dirs['output']}/features.csv")
-
     print(f"Features were successfully saved to {dirs['output']}/features.csv")
+
+    # log all settings for reproducibility
+    out = (
+        f"DIRS:\n"
+        f"{json.dumps(dirs, indent=4, sort_keys=True)}\n"
+        f"H_PARAMS:\n"
+        f"{json.dumps(h_params, indent=4, sort_keys=True)}\n"
+        f"EXCLUDED_FILES:\n"
+        f"{noisy_samples}"
+    )
+    log_file = datetime.now().strftime('%H_%M_%d_%m_%Y.log')
+    f = open(f"{dirs['output']}/{log_file}", "w+")
+    f.write(out)
+    f.close()
 
     if delete_tmp:
         shutil.rmtree(os.path.join(dirs['output'], 'tmp'))
 
 
 if __name__ == '__main__':
-    dirs = {'input': './data/input',
+    dirs = {
+            'input': './data/input',
             'laynet_model': './data/models/unet_depth5.pt',
             'vesnet_model': './data/models/vesnet_gn.pt',
-            'output': './data/output'}
+            'output': './data/output'
+            }
 
     h_params = {
         "segmentation": {
             "laynet_depth": 5,
-            "ves_probability": 0.96973
+            "ves_probability": 0.95
         },
         "post_segmentation": {
-            'min_size': 100,
-            'epidermis_offset': 20,
-            'roi_z': 150
+            'min_size': 1000,
+            'epidermis_offset': 30,
+            'roi_z': 130,
         },
         "metric_graph": {
-            'min_component_length': 100,
-            'min_total_length': 300,
+            'min_component_length': 50,
+            'min_end_branch_length': 20,
+            'min_total_length': 300
+        },
+        "visualization": {
+            'show_roi': False,
+            'show_preprocessing_results': True
         }
     }
 

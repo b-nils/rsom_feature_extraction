@@ -630,7 +630,7 @@ def compute_distance(p1, p2):
     return d
 
 
-def get_features(path_to_json_dir, h_params=None):
+def get_features(path_to_json_dir, out_vtk, h_params=None):
     """
     Extract features from metric graph json files.
     """
@@ -639,24 +639,56 @@ def get_features(path_to_json_dir, h_params=None):
         h_params = dict()
         h_params["min_component_length"] = 10
         h_params["min_total_length"] = 1000
+        h_params["min_end_branch_length"] = 20
 
     noisy_samples = []
     path = pathlib.Path(path_to_json_dir)
     filenames = set(path.glob("*.json"))
 
-    features = ["mg_length", "#bifurcations", "#nodes",
-                "#edges", "#components", "#nodes_per_component",
-                "length_per_component", "giant_component_length", "average_path_length",
-                "density", "degree_assortativity_coefficient", "num_cycles",
-                "bin1", "bin2", "bin3",
-                "bin4", "avg_radius", "avg_radius_giant",
-                "len_minimum_spanning_tree"]
+    main_features = [
+                     "total_vessel_length",
+                     "small_vessel_length",
+                     "large_vessel_length",
+                     "#vessel_bifurcations"
+                     ]
 
-    columns = ["filename"] + features
+    additional_features = [
+                            "avg_radius",
+                            "#components",
+                            "length_per_component",
+                            "avg_path_length",
+                            "density",
+                            "degree_assortativity_coefficient",
+                            "#cycles"
+                           ]
+
+    columns = ["filename"] + main_features + additional_features
 
     rows = []
 
     for f in filenames:
+        fn_path = pathlib.Path(f)
+        ###################################################################
+        # PREPROCESS FILENAME
+        ###################################################################
+        idx_1 = fn_path.name.find('_')
+        idx_2 = fn_path.name.find('_', idx_1 + 1)
+        DATETIME = fn_path.name[idx_1:idx_2 + 1]
+
+        # extract the 3 digit id + measurement string eg PAT001_RL01
+        idxID = fn_path.name.find('PAT')
+
+        if idxID == -1:
+            idxID = fn_path.name.find('VOL')
+
+        if idxID is not -1:
+            ID = fn_path.name[idxID:idxID + 11]
+        else:
+            # ID is different, extract string between Second "_" and third "_"
+            # usually it is 6 characters long
+            idx_3 = fn_path.name.find('_', idx_2 + 1)
+            ID = fn_path.name[idx_2 + 1:idx_3]
+
         ###################################################################
         # PROCESS JSON
         ###################################################################
@@ -665,7 +697,6 @@ def get_features(path_to_json_dir, h_params=None):
 
         nodes = [tuple(n) for n in graph["points"]]
         edges = [[tuple(e) for e in edge[:2]] + [edge[2]] for edge in graph["edges"]]
-        shape = graph["shape"]
 
         if len(nodes) == 0:
             noisy_samples.append("_".join(f.name.split("_")[:3]))
@@ -677,28 +708,13 @@ def get_features(path_to_json_dir, h_params=None):
         G.add_nodes_from(nodes)
 
         ###################################################################
-        # NOISE DETECTION
+        # PREPROCESSING
         ###################################################################
-        # find node with lowest z value, excluding nodes of very small components (10)
-        smallest_z = shape[2]
-        for c in nx.connected_components(G):
-            distance = 0
-            g = G.subgraph(c)
-            for edge in g.edges:
-                distance += compute_distance(edge[0], edge[1])
-            if distance > 10:
-                for p in g.nodes:
-                    if p[2] < smallest_z:
-                        smallest_z = p[2]
-
-        lower_length = 0
+        # remove samples with a total length smaller than h_params["min_total_length"]
         total_length = 0
         for edge in G.edges:
             total_length += compute_distance(edge[0], edge[1])
-            if smallest_z + 50 > edge[0][2] >= smallest_z <= edge[1][2] < smallest_z + 50:
-                lower_length += compute_distance(edge[0], edge[1])
 
-        # remove samples with a total length smaller than h_params["min_total_length"]
         if total_length < h_params["min_total_length"]:
             noisy_samples.append("_".join(f.name.split("_")[:3]))
             print(f.name, "removed due to minimum total length")
@@ -714,18 +730,33 @@ def get_features(path_to_json_dir, h_params=None):
             if distance > h_params["min_component_length"]:
                 G_clean = nx.compose(G_clean, g)
 
+        # remove end-branches smaller than h_params["min_end_branch_length"]: (for one iteration)
+        for e in G_clean.edges():
+            if compute_distance(e[0], e[1]) < h_params["min_end_branch_length"]:
+                if G_clean.degree(e[0]) == 1 or G_clean.degree(e[1]) == 1:
+                    G_clean.remove_edge(*e[:2])
+
+        # remove isolated nodes eventually caused by previous edge removement
+        G_clean.remove_nodes_from(list(nx.isolates(G_clean)))
         if G_clean.number_of_nodes() == 0:
             noisy_samples.append("_".join(f.name.split("_")[:3]))
-            if "PAT" not in f.name:
-                print(f.name, "removed due to no nodes after clean")
+            print(f.name, "removed due to no nodes after clean")
             continue
+
+        # save clean metric graph as vtk
+        edges = G_clean.edges()
+        edges = vedo.shapes.Lines(edges)
+        edges_radius = [edge[2]["radius"] for edge in G_clean.edges(data=True)]
+        edges.cellColors(edges_radius, cmap='jet').addScalarBar3D(c='k')
+        nodes = vedo.pointcloud.Points([list(n) for n in G_clean.nodes()])
+        out_nodes = f"{out_vtk}/R{DATETIME}{ID}_nodes_rem.vtk"
+        out_edges = f"{out_vtk}/R{DATETIME}{ID}_edges_rem.vtk"
+        vedo.io.write(nodes, out_nodes)
+        vedo.io.write(edges, out_edges)
 
         ###################################################################
         # FEATURE EXTRACTION
         ###################################################################
-        # NUMBER OF NODES AND EDGES
-        num_nodes = G_clean.number_of_nodes()
-        num_edges = G_clean.number_of_edges()
         # AVERAGE PATH LENGTH
         path_lengths = []
         for v in G_clean.nodes():
@@ -738,26 +769,14 @@ def get_features(path_to_json_dir, h_params=None):
         density = nx.density(G_clean)
         # DEGREE ASSORTATIVITY COEFFICIENT
         degree_assortativity_coefficient = nx.degree_assortativity_coefficient(G_clean)
+        if not degree_assortativity_coefficient:
+            degree_assortativity_coefficient = 0
         # NUMBER OF CYCLES
         num_cycles = len(nx.cycle_basis(G_clean))
-        # SIZE OF MINIMUM SPANNING TREE
-        size_minimum_spanning_tree = len(nx.minimum_spanning_tree(G_clean, weight='radius'))
         # NUMBER OF BIFURCATION POINTS
-        num_bifurcations = len([val for (node, val) in G_clean.degree() if val > 2])
-        # RADIUS IN BINS
-        radius = np.array([e[2]["radius"] for e in G_clean.edges(data=True)])
-        bin1, bin2, bin3, bin4 = tuple(np.histogram(radius, bins=[1, 2, 3, 4, 7])[0] / num_edges)
-        # LENGTH AND AVERAGE RADIUS OF GIANT COMPONENT
-        giant = G_clean.subgraph(max(nx.connected_components(G_clean), key=len))
-        giant_component_length = 0
-        avg_rads_giant = 0
-        for edge in giant.edges(data=True):
-            giant_component_length += compute_distance(edge[0], edge[1])
-            avg_rads_giant += edge[2]["radius"] * compute_distance(edge[0], edge[1])
-        avg_rads_giant /= giant_component_length
+        num_vessel_bifurcations = len([val for (node, val) in G_clean.degree() if val > 2])
         # NUMBER OF COMPONENTS AND AVG LENGTH PER COMPONENT
         num_components = nx.number_connected_components(G_clean)
-        num_nodes_per_component = num_nodes / num_components
         len_components = []
         for c in nx.connected_components(G_clean):
             distance = 0
@@ -768,21 +787,37 @@ def get_features(path_to_json_dir, h_params=None):
         len_components = np.array(len_components)
         length_per_component = len_components.mean()
         # TOTAL LENGTH OF METRIC GRAPH
-        length = len_components.sum()
+        total_vessel_length = len_components.sum()
         # AVERAGE RADIUS
         avg_radius = np.array([e[2]["radius"] for e in G_clean.edges(data=True)]).mean()
+        # NUMBER OF SMALL AND LARGE VESSELS
+        small_vessel_length = 0
+        large_vessel_length = 0
+        for e in G_clean.edges(data=True):
+            if e[2]["radius"] <= 2.5:
+                small_vessel_length += compute_distance(e[0], e[1])
+            else:
+                large_vessel_length += compute_distance(e[0], e[1])
 
         rows.append(
-            ["_".join(f.name.split("_")[:3]), length, num_bifurcations, num_nodes,
-             num_edges, num_components, num_nodes_per_component, length_per_component, giant_component_length,
-             avg_path_length, density, degree_assortativity_coefficient, num_cycles,
-             bin1, bin2, bin3, bin4, avg_radius, avg_rads_giant, size_minimum_spanning_tree])
+            ["_".join(f.name.split("_")[:3]),
+             total_vessel_length,
+             small_vessel_length,
+             large_vessel_length,
+             num_vessel_bifurcations,
+             avg_radius,
+             num_components,
+             length_per_component,
+             avg_path_length,
+             density,
+             degree_assortativity_coefficient,
+             num_cycles,
+             ])
 
     print(len(noisy_samples), "samples were removed due to noise.")
 
     # construct pandas dataframe
     df = pd.DataFrame(rows, columns=columns)
     df = df.set_index('filename')
-    df = df.dropna()
 
     return df

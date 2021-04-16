@@ -1,24 +1,17 @@
 from pathlib import Path
-
 import os
-
 import scipy.io as sio
 from scipy import interpolate
 from scipy import ndimage
 from scipy.optimize import minimize_scalar
-
+from skimage import morphology
 import imageio
-
 import numpy as np
-
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
-
 import time
 import warnings
-
 import nibabel as nib
-
 from skimage import exposure, morphology, transform, filters
 
 
@@ -331,8 +324,6 @@ class RsomVessel(Rsom):
         filename = 'R' + self.file.DATETIME + self.file.ID + '_' + fstr
         file = os.path.join(path, filename)
 
-        # print('Loading', file)
-
         # two modes supported, extract from prediction volume
         # or manual input through file
         if mode == 'pred':
@@ -342,9 +333,6 @@ class RsomVessel(Rsom):
             self.S = self.S.astype(np.uint8)
 
             assert self.Vl.shape == self.S.shape, 'Shapes of raw and segmentation do not match'
-
-            # print(self.Vl.shape)
-            # print(self.S.shape)
 
             # for every slice in x-y plane, calculate label sum
             label_sum = np.sum(self.S, axis=(1, 2))
@@ -382,12 +370,8 @@ class RsomVessel(Rsom):
         else:
             raise NotImplementedError
 
-
-        # print('Removing epidermis. Cutting at', layer_end)
-
         self.Vl = self.Vl[layer_end:, :, :]
         self.Vh = self.Vh[layer_end:, :, :]
-
         self.layer_end = layer_end
 
     def rescale_intensity(self):
@@ -419,8 +403,12 @@ class RsomVisualization(Rsom):
         '''
         return (self.loadNII(filename)).astype(np.uint8)
 
-    def calc_mip_ves_seg(self, seg, axis=1, padding=(0, 0)):
+    def calc_mip_ves_seg(self, seg, axis=1, padding=(0, 0), show_post_processing_result=True, min_size=1000):
         seg = self.load_seg(seg)
+
+        # remove small objects just for the visualization
+        if show_post_processing_result:
+            seg = morphology.remove_small_objects(seg.astype(bool), min_size)
 
         mip = np.sum(seg, axis=axis) >= 1
 
@@ -447,7 +435,7 @@ class RsomVisualization(Rsom):
         self.axis_P = axis
         self.P_seg = mip
 
-    def merge_mip_ves(self, z, do_plot=True):
+    def merge_mip_ves(self, z0, post_processing_params, show_roi=True, do_plot=True):
         '''
         merge MIP and MIP of segmentation with feeding into blue channel
         '''
@@ -464,11 +452,14 @@ class RsomVisualization(Rsom):
         self.P_overlay[:, :, 2] += blue
         self.P_overlay[self.P > 255] = 255
 
-        # mark ROI in pink
-        roi = np.zeros_like(self.P_seg)
-        roi[z[0]:z[1], :] = 1
-        self.P_overlay = _overlay(self.P_overlay, roi.astype(np.float32), colour=[255, 0, 255],
-                                  alpha=0.7)
+        if show_roi:
+            z = (z0 + post_processing_params["epidermis_offset"],
+                 z0 + post_processing_params["epidermis_offset"] + post_processing_params["roi_z"])
+            # mark ROI in pink
+            roi = np.zeros_like(self.P_seg)
+            roi[z[0]:z[1], :] = 1
+            self.P_overlay = _overlay(self.P_overlay, roi.astype(np.float32), colour=[255, 0, 255],
+                                      alpha=0.5)
 
         if do_plot:
             plt.figure()
