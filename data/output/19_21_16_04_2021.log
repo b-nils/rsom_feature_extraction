@@ -1,0 +1,30 @@
+DIRS:
+{
+    'input': './data/input',
+    'laynet_model': './data/models/unet_depth5.pt',
+    'vesnet_model': './data/models/vesnet_gn.pt',
+    'output': './data/output'
+}
+H_PARAMS:
+{
+    "metric_graph": {
+        "min_component_length": 50,
+        "min_end_branch_length": 20,
+        "min_total_length": 300
+    },
+    "post_segmentation": {
+        "epidermis_offset": 30,
+        "min_size": 1000,
+        "roi_z": 130
+    },
+    "segmentation": {
+        "laynet_depth": 5,
+        "ves_probability": 0.95
+    },
+    "visualization": {
+        "show_preprocessing_results": true,
+        "show_roi": false
+    }
+}
+EXCLUDED_FILES:
+(array([], dtype=int64),)
