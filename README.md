@@ -1,8 +1,5 @@
 # RSOM vessel feature extraction
 
-| Epidermis and vesssel segmentation | Metric graph (ParaView) |
-|:----------------------------------:|:--------------------:|
-|       ![](./images/seg.png)        | ![](./images/mg.png) |
 ## Preface
 
 The repository was built upon Gerl et al. findings [[5]](#5) and bases on [this](https://github.com/stefanhige/pytorch-rsom-seg) implementation.
@@ -47,9 +44,9 @@ If you have a smaller GPU, you can edit variable `divs=(1,1,2)`,
 to `divs=(1,2,2)`, or even larger values. `divs` are the numbers, the input
 tensor is split in each dimension, and closely related to the amount of memory required. 
 
-The feature extraction requires a set of predefined hyperparameters, which can be set in 'pipeline.py' and are subsequently summarized. Let `G` be the metric graph, `E` the epidermis segmentation mask, and `V` the vessel segmentation mask.
+The feature extraction requires a set of parameters, which can be defined in 'pipeline.py' and are subsequently summarized. Let `G` be the metric graph, `E` the epidermis segmentation mask, and `V` the vessel segmentation mask.
 
-| Hyperparameter             | Description                                                                                                                                                                                               |
+| Parameter             | Description                                                                                                                                                                                               |
 |:---------------------------|:----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | laynet_depth               | The depth of the U-Net being used for the epidermis segmentation.                                                                                                                                         |
 | ves_probability            | The probability threshold for the vessel segmentation.                                                                                                                                                    |
@@ -62,8 +59,9 @@ The feature extraction requires a set of predefined hyperparameters, which can b
 | show_roi                   | Whether to mark the ROI in pink color.                                                                                                                                                                    |
 | show_preprocessing_results | Whether to visualize preprocessed `V` or untouched `V`.                                                                                                                                                       |
 
-
-
+| Epidermis and vesssel segmentation | Metric graph (ParaView) |
+|:----------------------------------:|:--------------------:|
+|       ![](./images/seg.png)        | ![](./images/mg.png) |
 
 ## Results
 
@@ -72,7 +70,7 @@ Segmentation visualizations are saved to `./data/output/visualization/segmentati
 The reconstructed metric graphs can be visualized with [ParaView](https://www.paraview.org/) 
 and the corresponding `*.vtk` files can be found in `./data/output/visualization/metric_graph`.
 Furthermore, all intermediate results are placed in `./data/output/tmp`.
-If one wishes to remove intermediate results, `pipeline.py` can be adjusted accordingly. For reproducibility we write the hyperparameters being used and the removed sample names to `./data/output/<<TIMESTAMP>>.log`.
+If one wishes to remove intermediate results, `pipeline.py` can be adjusted accordingly. For reproducibility we log the parameters and removed sample names to `./data/output/<<TIMESTAMP>>.log`.
 
 ### Main features
 
@@ -99,6 +97,8 @@ If one wishes to remove intermediate results, `pipeline.py` can be adjusted acco
 | num_cycles                       | Number of cycles of `G`.                                                                                                                                                                                                                                                                                         |
 | avg_radius                       | Average radius of `G`'s edges.                                                                                                                                                                                                                                                                                   |
 | avg_path_length | Average shortest path length from eacz node to every other node of `G` in pixel.|                                 |                                                                                                                                                                                                                                                                                                                  |
+
+
 
 
 ## References
