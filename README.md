@@ -1,4 +1,4 @@
-# RSOM vessel feature extraction
+# RSOM feature extraction
 
 ## Preface
 
