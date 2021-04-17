@@ -44,7 +44,7 @@ If you have a smaller GPU, you can edit variable `divs=(1,1,2)`,
 to `divs=(1,2,2)`, or even larger values. `divs` are the numbers, the input
 tensor is split in each dimension, and closely related to the amount of memory required. 
 
-The feature extraction requires a set of parameters, which can be defined in 'pipeline.py' and are subsequently summarized. Let `G` be the metric graph, `E` the epidermis segmentation mask, and `V` the vessel segmentation mask.
+The feature extraction requires a set of parameters, which can be defined in `pipeline.py` and are subsequently summarized. Let `G` be the metric graph, `E` the epidermis segmentation mask, and `V` the vessel segmentation mask.
 
 | Parameter             | Description                                                                                                                                                                                               |
 |:---------------------------|:----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
