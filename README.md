@@ -59,10 +59,6 @@ The feature extraction requires a set of parameters, which can be defined in 'pi
 | show_roi                   | Whether to mark the ROI in pink color.                                                                                                                                                                    |
 | show_preprocessing_results | Whether to visualize preprocessed `V` or untouched `V`.                                                                                                                                                       |
 
-| Epidermis and vesssel segmentation | Metric graph (ParaView) |
-|:----------------------------------:|:--------------------:|
-|       ![](./images/seg.png)        | ![](./images/mg.png) |
-
 ## Results
 
 After successful execution, results are placed in `./data/output/`. Features are saved to `./data/output/features.csv`. 
@@ -71,6 +67,12 @@ The reconstructed metric graphs can be visualized with [ParaView](https://www.pa
 and the corresponding `*.vtk` files can be found in `./data/output/visualization/metric_graph`.
 Furthermore, all intermediate results are placed in `./data/output/tmp`.
 If one wishes to remove intermediate results, `pipeline.py` can be adjusted accordingly. For reproducibility we log the parameters and removed sample names to `./data/output/<<TIMESTAMP>>.log`.
+
+### Visualizations
+
+| Epidermis and vesssel segmentation | Metric graph (ParaView) |
+|:----------------------------------:|:--------------------:|
+|       ![](./images/seg.png)        | ![](./images/mg.png) |
 
 ### Main features
 
