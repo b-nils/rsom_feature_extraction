@@ -5,6 +5,13 @@
 The repository was built upon Gerl et al. findings [[5]](#5) and bases on [this](https://github.com/stefanhige/pytorch-rsom-seg) implementation.
 It contains the python source code to extract three-dimensional features from raster-scan optoacoustic mesoscopy (RSOM) data [[3]](#3), with the use of deep learning-based segmentation techniques and metric graph reconstruction [[7]](#7).
 
+
+## Architecture
+
+First, the epidermis is segmented. The dermal skin layer is then passed to the vessel segmentation. Finally, the metric graph is reconstructed, abstracting the vascular network. Features are extracted from the epidermis and preprocessed vessel segmentation mask as well as the preprocessed metric graph.
+
+![](./images/pipeline.svg)
+
 ## Setup
 
 This repository was tested on Ubuntu 16.04.6 LTS and 
@@ -99,14 +106,6 @@ If one wishes to remove intermediate results, `pipeline.py` can be adjusted acco
 | num_cycles                       | Number of cycles of `G`.                                                                                                                                                                                                                                                                                         |
 | avg_radius                       | Average radius of `G`'s edges.                                                                                                                                                                                                                                                                                   |
 | avg_path_length | Average shortest path length from eacz node to every other node of `G` in pixel.|                                 |                                                                                                                                                                                                                                                                                                                  |
-
-
-## Architecture
-
-First, the epidermis is segmented. The dermal skin layer is then passed to the vessel segmentation. Finally, the metric graph is reconstructed, abstracting the vascular network. Feature are extracted from the epidermis and preprocessed vessel segmentation mask as well as the preprocessed metric graph.
-
-![](./images/pipeline.svg)
-
 
 ## References
 <a id="1">[1]</a>
