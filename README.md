@@ -1,6 +1,6 @@
 # RSOM feature extraction
 
-![](./images/pipeline.pdf)
+![](./images/pipeline.svg)
 
 ## Preface
 
