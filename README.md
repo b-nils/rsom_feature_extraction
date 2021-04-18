@@ -1,5 +1,7 @@
 # RSOM feature extraction
 
+![](./images/pipeline.pdf)
+
 ## Preface
 
 The repository was built upon Gerl et al. findings [[5]](#5) and bases on [this](https://github.com/stefanhige/pytorch-rsom-seg) implementation.
