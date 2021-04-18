@@ -1,7 +1,5 @@
 # RSOM feature extraction
 
-![](./images/pipeline.svg)
-
 ## Preface
 
 The repository was built upon Gerl et al. findings [[5]](#5) and bases on [this](https://github.com/stefanhige/pytorch-rsom-seg) implementation.
@@ -103,6 +101,11 @@ If one wishes to remove intermediate results, `pipeline.py` can be adjusted acco
 | avg_path_length | Average shortest path length from eacz node to every other node of `G` in pixel.|                                 |                                                                                                                                                                                                                                                                                                                  |
 
 
+## Architecture
+
+First, the epidermis is segmented. The dermal skin layer is then passed to the vessel segmentation. Finally, the metric graph is reconstructed, abstracting the vascular network. Feature are extracted from the epidermis and preprocessed vessel segmentation mask as well as the preprocessed metric graph.
+
+![](./images/pipeline.svg)
 
 
 ## References
