@@ -75,12 +75,6 @@ and the corresponding `*.vtk` files can be found in `./data/output/visualization
 Furthermore, all intermediate results are placed in `./data/output/tmp`.
 If one wishes to remove intermediate results, `pipeline.py` can be adjusted accordingly. For reproducibility we log the parameters and removed sample names to `./data/output/<<TIMESTAMP>>.log`.
 
-### Visualizations
-
-| Epidermis and vesssel segmentation | Metric graph (ParaView) |
-|:----------------------------------:|:--------------------:|
-|       ![](./images/seg.png)        | ![](./images/mg.png) |
-
 ### Main features
 
 |Feature|Description|
