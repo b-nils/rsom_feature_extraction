@@ -293,7 +293,7 @@ def vessel_pipeline(dirs,
     print('----------------------------------------')
     print('This may take a while ;)')
 
-    # split filenames by #workers to parallelize metric graph extraction
+    # split filenames by #workers to parallelize metric graph extraction (https://stackoverflow.com/a/2135920/12109823)
     def split(a, n):
         k, m = divmod(len(a), n)
         return (a[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(n))
@@ -412,11 +412,11 @@ def vessel_pipeline(dirs,
 
 if __name__ == '__main__':
     dirs = {
-            'input': './data/input',
-            'laynet_model': './data/models/unet_depth5.pt',
-            'vesnet_model': './data/models/vesnet_gn.pt',
-            'output': './data/output'
-            }
+        'input': './data/input',
+        'laynet_model': './data/models/unet_depth5.pt',
+        'vesnet_model': './data/models/vesnet_gn.pt',
+        'output': './data/output'
+    }
 
     h_params = {
         "segmentation": {

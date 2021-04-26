@@ -584,6 +584,7 @@ def run_reconstruction(filenames, out_vtk, out_json):
         ###################################################################
         # load volume and create PointList object
         vol = nib.load(str(fn_path)).get_data()
+        vol = np.flip(vol, 0)
         points = []
         x = vol.shape[2]
         y = vol.shape[1]
@@ -593,7 +594,7 @@ def run_reconstruction(filenames, out_vtk, out_json):
                 for z_idx in range(z):
                     radius = vol[z_idx, y_idx, x_idx]
                     if radius > 0.:
-                        points.append(Point(x_idx, y_idx, z - z_idx - 1, round(radius, 3)))
+                        points.append(Point(x_idx, y_idx, z_idx, round(radius, 3)))
         # inputs to the algorithm
         point_list = PointList(points)
         delta, r, p11 = 2, 1.5, 0.9
@@ -630,6 +631,16 @@ def compute_distance(p1, p2):
     return d
 
 
+def compute_distance_mc(p1, p2):
+    ''' Euclidean distance between tuples p1 and p2 in micrometer (given a RSOM pixel space).'''
+    d = (
+            (((p1[0] - p2[0]) * 12) ** 2) +
+            (((p1[1] - p2[1]) * 12) ** 2) +
+            (((p1[2] - p2[2]) * 3) ** 2)
+        ) ** 0.5
+    return d
+
+
 def get_features(path_to_json_dir, out_vtk, h_params=None):
     """
     Extract features from metric graph json files.
@@ -643,7 +654,7 @@ def get_features(path_to_json_dir, out_vtk, h_params=None):
 
     noisy_samples = []
     path = pathlib.Path(path_to_json_dir)
-    filenames = set(path.glob("*.json"))
+    filenames = set(path.glob("*graph.json"))
 
     main_features = [
                      "total_vessel_length",
@@ -731,10 +742,12 @@ def get_features(path_to_json_dir, out_vtk, h_params=None):
                 G_clean = nx.compose(G_clean, g)
 
         # remove end-branches smaller than h_params["min_end_branch_length"]: (for one iteration)
+        edges_to_remove = []
         for e in G_clean.edges():
             if compute_distance(e[0], e[1]) < h_params["min_end_branch_length"]:
                 if G_clean.degree(e[0]) == 1 or G_clean.degree(e[1]) == 1:
-                    G_clean.remove_edge(*e[:2])
+                    edges_to_remove.append(e)
+        G_clean.remove_edges_from(edges_to_remove)
 
         # remove isolated nodes eventually caused by previous edge removement
         G_clean.remove_nodes_from(list(nx.isolates(G_clean)))
@@ -749,8 +762,8 @@ def get_features(path_to_json_dir, out_vtk, h_params=None):
         edges_radius = [edge[2]["radius"] for edge in G_clean.edges(data=True)]
         edges.cellColors(edges_radius, cmap='jet').addScalarBar3D(c='k')
         nodes = vedo.pointcloud.Points([list(n) for n in G_clean.nodes()])
-        out_nodes = f"{out_vtk}/R{DATETIME}{ID}_nodes_rem.vtk"
-        out_edges = f"{out_vtk}/R{DATETIME}{ID}_edges_rem.vtk"
+        out_nodes = f"{out_vtk}/R{DATETIME}{ID}_nodes_clean.vtk"
+        out_edges = f"{out_vtk}/R{DATETIME}{ID}_edges_clean.vtk"
         vedo.io.write(nodes, out_nodes)
         vedo.io.write(edges, out_edges)
 
@@ -769,7 +782,7 @@ def get_features(path_to_json_dir, out_vtk, h_params=None):
         density = nx.density(G_clean)
         # DEGREE ASSORTATIVITY COEFFICIENT
         degree_assortativity_coefficient = nx.degree_assortativity_coefficient(G_clean)
-        if not degree_assortativity_coefficient:
+        if degree_assortativity_coefficient is None:
             degree_assortativity_coefficient = 0
         # NUMBER OF CYCLES
         num_cycles = len(nx.cycle_basis(G_clean))
@@ -782,7 +795,7 @@ def get_features(path_to_json_dir, out_vtk, h_params=None):
             distance = 0
             g = G_clean.subgraph(c)
             for edge in g.edges:
-                distance += compute_distance(edge[0], edge[1])
+                distance += compute_distance_mc(edge[0], edge[1])
             len_components.append(distance)
         len_components = np.array(len_components)
         length_per_component = len_components.mean()
@@ -795,9 +808,9 @@ def get_features(path_to_json_dir, out_vtk, h_params=None):
         large_vessel_length = 0
         for e in G_clean.edges(data=True):
             if e[2]["radius"] <= 2.5:
-                small_vessel_length += compute_distance(e[0], e[1])
+                small_vessel_length += compute_distance_mc(e[0], e[1])
             else:
-                large_vessel_length += compute_distance(e[0], e[1])
+                large_vessel_length += compute_distance_mc(e[0], e[1])
 
         rows.append(
             ["_".join(f.name.split("_")[:3]),
