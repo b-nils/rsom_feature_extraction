@@ -8,7 +8,7 @@ It contains the python source code to extract three-dimensional features from ra
 
 ## Architecture
 
-First, the epidermis is segmented. The dermal skin layer is then passed to the vessel segmentation. Finally, the metric graph is reconstructed, abstracting the vascular network. Features are extracted from the epidermis and preprocessed vessel segmentation mask as well as the preprocessed metric graph.
+First, the epidermis is segmented (epidermis SGM). The dermal skin layer is then passed to the vessel segmentation (vessel SGM). Finally, the metric graph (G) is reconstructed, abstracting the vascular network. Features are extracted from the epidermis and preprocessed vessel segmentation mask, and the preprocessed metric graph.
 
 ![](./images/pipeline.svg)
 
@@ -79,9 +79,9 @@ If one wishes to remove intermediate results, `pipeline.py` can be adjusted acco
 
 |Feature|Description|
 |-------|-----------|
-|total_vessel_length|Sum of the length of edges of `G` in pixel.|
-|small_vessel_length|Sum of the length of edges of `G` in pixel having an average radius smaller than 2.5 pixels.|
-|large_vessel_length|Sum of the length of edges of `G` in pixel having an average radius greater than or equal to 2.5 pixels.|
+|total_vessel_length|Sum of the length of edges of `G` in mm.|
+|small_vessel_length|Sum of the length of edges of `G` in mm having an average radius smaller than 2.5 pixels.|
+|large_vessel_length|Sum of the length of edges of `G` in mm having an average radius greater than or equal to 2.5 pixels.|
 |#vessel_bifurcations|Number of nodes of `G` with a degree higher than 2.|
 |total_blood_volume|Volume of `V` in micrometers³.|
 |epidermis_width|Average width in z-direction of `E` in micrometers.|
@@ -94,12 +94,12 @@ If one wishes to remove intermediate results, `pipeline.py` can be adjusted acco
 | epidermal_signal_density         | The signal density of `E`, which was computed by multiplying the input volume with `E` and normalizing its sum by the total epidermis volume.                                                                                                                                                                    |
 | #components                      | Number of connected components of `G`.                                                                                                                                                                                                                                                                           |
 | #nodes_per_component             | Number of nodes per component of `G`.                                                                                                                                                                                                                                                                            |
-| length_per_component             | Average length of the edges per connected component of `G` in pixel.                                                                                                                                                                                                                                             |
+| length_per_component             | Average length of the edges per connected component of `G` in mm.                                                                                                                                                                                                                                             |
 | density                          | [Density](https://networkx.org/documentation/stable/reference/generated/networkx.classes.function.density.html) of `G`.                                                                                                                                                                                          |
 | degree_assortativity_coefficient | Measures the similarity of connections in the graph with respect to the node degree ([source](https://networkx.org/documentation/networkx-1.10/reference/generated/networkx.algorithms.assortativity.degree_assortativity_coefficient.html#networkx.algorithms.assortativity.degree_assortativity_coefficient)). |
 | num_cycles                       | Number of cycles of `G`.                                                                                                                                                                                                                                                                                         |
 | avg_radius                       | Average radius of `G`'s edges.                                                                                                                                                                                                                                                                                   |
-| avg_path_length | Average shortest path length from eacz node to every other node of `G` in pixel.|                                 |                                                                                                                                                                                                                                                                                                                  |
+| avg_path_length | Average shortest path length from eacz node to every other node of `G` in mm.|                                 |                                                                                                                                                                                                                                                                                                                  |
 
 ## References
 <a id="1">[1]</a>
