@@ -770,14 +770,14 @@ def get_features(path_to_json_dir, out_vtk, h_params=None):
         ###################################################################
         # FEATURE EXTRACTION
         ###################################################################
-        # AVERAGE PATH LENGTH
+        # AVERAGE PATH LENGTH IN MM
         path_lengths = []
         for v in G_clean.nodes():
             spl = dict(nx.single_source_shortest_path_length(G_clean, v))
             for p in spl:
                 path_lengths.append(spl[p])
 
-        avg_path_length = sum(path_lengths) / len(path_lengths)
+        avg_path_length = (sum(path_lengths) / len(path_lengths)) / 1000
         # DENSITY
         density = nx.density(G_clean)
         # DEGREE ASSORTATIVITY COEFFICIENT
@@ -788,7 +788,7 @@ def get_features(path_to_json_dir, out_vtk, h_params=None):
         num_cycles = len(nx.cycle_basis(G_clean))
         # NUMBER OF BIFURCATION POINTS
         num_vessel_bifurcations = len([val for (node, val) in G_clean.degree() if val > 2])
-        # NUMBER OF COMPONENTS AND AVG LENGTH PER COMPONENT
+        # NUMBER OF COMPONENTS AND AVG LENGTH PER COMPONENT IN MM
         num_components = nx.number_connected_components(G_clean)
         len_components = []
         for c in nx.connected_components(G_clean):
@@ -798,12 +798,12 @@ def get_features(path_to_json_dir, out_vtk, h_params=None):
                 distance += compute_distance_mc(edge[0], edge[1])
             len_components.append(distance)
         len_components = np.array(len_components)
-        length_per_component = len_components.mean()
-        # TOTAL LENGTH OF METRIC GRAPH
-        total_vessel_length = len_components.sum()
+        length_per_component = len_components.mean() / 1000
+        # TOTAL LENGTH OF METRIC GRAPH IN MM
+        total_vessel_length = len_components.sum() / 1000
         # AVERAGE RADIUS
         avg_radius = np.array([e[2]["radius"] for e in G_clean.edges(data=True)]).mean()
-        # NUMBER OF SMALL AND LARGE VESSELS
+        # NUMBER OF SMALL AND LARGE VESSELS in MM
         small_vessel_length = 0
         large_vessel_length = 0
         for e in G_clean.edges(data=True):
@@ -811,6 +811,8 @@ def get_features(path_to_json_dir, out_vtk, h_params=None):
                 small_vessel_length += compute_distance_mc(e[0], e[1])
             else:
                 large_vessel_length += compute_distance_mc(e[0], e[1])
+        small_vessel_length /= 1000
+        large_vessel_length /= 1000
 
         rows.append(
             ["_".join(f.name.split("_")[:3]),
