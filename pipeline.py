@@ -1,3 +1,4 @@
+
 """
 Pipeline for RSOM epidermis-, vessel segmentation and feature extraction.
 
@@ -8,6 +9,7 @@ base:
 
 import os
 import numpy as np
+import scipy
 from scipy import ndimage
 import nibabel as nib
 import copy
@@ -105,6 +107,18 @@ def vessel_pipeline(dirs,
             pattern = [pattern]
         all_files = [os.path.basename(get_unique_filepath(dirs['input'], pat)[0]) for pat in pattern]
 
+    # log all settings for reproducibility
+    out = (
+        f"DIRS:\n"
+        f"{json.dumps(dirs, indent=4, sort_keys=True)}\n"
+        f"H_PARAMS:\n"
+        f"{json.dumps(h_params, indent=4, sort_keys=True)}\n"
+    )
+    log_file = datetime.now().strftime('%H_%M_%d_%m_%Y.log')
+    f = open(f"{dirs['output']}/{log_file}", "w+")
+    f.write(out)
+    f.close()
+
     ###################################################################
     # PREPROCESSING FOR LAYER SEGMENTATION
     ###################################################################
@@ -138,7 +152,6 @@ def vessel_pipeline(dirs,
         Sample = Rsom(fullpathLF, fullpathHF, fullpathSurf)
 
         Sample.prepare()
-
         Sample.save_volume(path_tmp_layerseg_prep, fstr='rgb')
 
     ###################################################################
@@ -148,11 +161,16 @@ def vessel_pipeline(dirs,
     print('Segmenting epidermis ...')
     print('----------------------------------------')
 
+    model_type = {'type': 'unet', 'wf': 6}
+
     LayerNetInstance = LayerNetBase(dirs={'model': dirs['laynet_model'],
                                           'pred': path_tmp_layerseg_prep,
                                           'out': path_tmp_layerseg_out},
-                                    model_depth=h_params["segmentation"]["laynet_depth"],
-                                    device=device)
+                                    device=device,
+                                    model_depth=5,
+                                    sliding_window_size=5,
+                                    batch_size=6,
+                                    model_type=model_type)
 
     LayerNetInstance.predict()
 
@@ -177,7 +195,7 @@ def vessel_pipeline(dirs,
 
         Sample = RsomVessel(fullpathLF, fullpathHF, fullpathSurf)
 
-        Sample.prepare(path_tmp_layerseg_out, mode='pred', fstr='pred.nii.gz')
+        Sample.prepare(path_tmp_layerseg_out, mode='pred', fstr='pred.nii.gz', only_visualization=h_params["only_visualization"])
         Sample.save_volume(path_tmp_vesselseg_prep, fstr='v_rgb')
 
     ###################################################################
@@ -208,10 +226,12 @@ def vessel_pipeline(dirs,
     for f in files:
         shutil.move(os.path.join(path_tmp_vesselseg_out, f),
                     os.path.join(path_tmp_vesselseg_prob, f))
-
     ###################################################################
-    # VESSEL VISUALIZATION
+    # VISUALIZATION
     ###################################################################
+    print('\n----------------------------------------')
+    print('Visualizing segmentation results ...')
+    print('----------------------------------------')
     _dirs = {'in': dirs['input'],
              'layer': path_tmp_layerseg_out,
              'vessel': path_tmp_vesselseg_out,
@@ -221,190 +241,181 @@ def vessel_pipeline(dirs,
                       _dirs,
                       post_processing_params=h_params["post_segmentation"],
                       visualization_params=h_params["visualization"],
-                      plot_epidermis=True)
+                      plot_epidermis=True,
+                      plot_ves_seg=not h_params["only_epidermal_features"]
+                      )
 
-    ###################################################################
-    # POST SEGMENTATION PROCESSING
-    ###################################################################
-    print('\n----------------------------------------')
-    print('Post processing vessel segmentation mask ...')
-    print('----------------------------------------')
-    image_filenames = pathlib.Path(path_tmp_vesselseg_prep).glob("*_rgb.nii.gz")
-    EPIDERMIS_OFFSET = h_params["post_segmentation"]["epidermis_offset"]
-    ROI_Z = h_params["post_segmentation"]["roi_z"]
-    for i_fn in tqdm(image_filenames, total=num_samples):
-        mask_filenames = pathlib.Path(path_tmp_vesselseg_out).glob('*_pred.nii.gz')
-        m_fn = [m_fn for m_fn in mask_filenames if "_".join(i_fn.name.split("_")[:3]) in m_fn.name][0]
+    if not h_params["only_epidermal_features"] and not h_params["only_visualization"]:
+        ###################################################################
+        # POST SEGMENTATION PROCESSING
+        ###################################################################
+        print('\n----------------------------------------')
+        print('Post processing vessel segmentation mask ...')
+        print('----------------------------------------')
+        image_filenames = pathlib.Path(path_tmp_vesselseg_prep).glob("*_rgb.nii.gz")
+        EPIDERMIS_OFFSET = h_params["post_segmentation"]["epidermis_offset"]
+        ROI_Z = h_params["post_segmentation"]["roi_z"]
+        for i_fn in tqdm(image_filenames, total=num_samples):
+            mask_filenames = pathlib.Path(path_tmp_vesselseg_out).glob('*_pred.nii.gz')
+            m_fn = [m_fn for m_fn in mask_filenames if "_".join(i_fn.name.split("_")[:3]) in m_fn.name][0]
+            fmt = '.nii.gz'
+            # cut input image
+            img = nib.load(str(i_fn)).get_data()
+            img_cut = img[EPIDERMIS_OFFSET:EPIDERMIS_OFFSET+ROI_Z, :, :]
+            prefix = i_fn.name.split('.')[0]
+            suffix = "_cut"
+            img_cut_nifti = nib.Nifti1Image(img_cut, np.eye(4))
+            i_cut_fn = prefix + suffix + fmt
+            nib.save(img_cut_nifti,  os.path.join(path_tmp_vesselseg_prep_cut, i_cut_fn))
+            # cut mask
+            mask = nib.load(str(m_fn)).get_data()
+            mask_cut = mask[EPIDERMIS_OFFSET:EPIDERMIS_OFFSET+ROI_Z, :, :]
+            prefix = m_fn.name.split('.')[0]
+            suffix = "_cut"
+            mask_cut_nifti = nib.Nifti1Image(mask_cut, np.eye(4))
+            m_cut_fn = prefix + suffix + fmt
+            nib.save(mask_cut_nifti, os.path.join(path_tmp_vesselseg_out_cut, m_cut_fn))
+            # clean mask
+            mask_cut_clean = morphology.remove_small_objects(mask_cut.astype(bool),
+                                                             h_params["post_segmentation"]["min_size"]).astype(float)
+            prefix = m_fn.name.split('.')[0]
+            suffix = "_cut_clean"
+            mask_cut_clean_nifti = nib.Nifti1Image(mask_cut_clean, np.eye(4))
+            m_cut_clean_fn = prefix + suffix + fmt
+            nib.save(mask_cut_clean_nifti, os.path.join(path_tmp_vesselseg_out_cut_clean, m_cut_clean_fn))
+
+
+        ###################################################################
+        # SKELETA EXTRACTION
+        ###################################################################
+        print('\n----------------------------------------')
+        print('Extracting skeleta ...')
+        print('----------------------------------------')
+        # extract and vesSAP features
+        filenames = pathlib.Path(path_tmp_vesselseg_out_cut).glob("*")#pathlib.Path(path_tmp_vesselseg_out_cut_clean).glob("*")#
+        rad_suffix = "_rads"
         fmt = '.nii.gz'
-        # cut input image
-        img = nib.load(str(i_fn)).get_data()
-        img_cut = img[EPIDERMIS_OFFSET:EPIDERMIS_OFFSET+ROI_Z, :, :]
-        prefix = i_fn.name.split('.')[0]
-        suffix = "_cut"
-        img_cut_nifti = nib.Nifti1Image(img_cut, np.eye(4))
-        i_cut_fn = prefix + suffix + fmt
-        nib.save(img_cut_nifti,  os.path.join(path_tmp_vesselseg_prep_cut, i_cut_fn))
-        # cut mask
-        mask = nib.load(str(m_fn)).get_data()
-        mask_cut = mask[EPIDERMIS_OFFSET:EPIDERMIS_OFFSET+ROI_Z, :, :]
-        prefix = m_fn.name.split('.')[0]
-        suffix = "_cut"
-        mask_cut_nifti = nib.Nifti1Image(mask_cut, np.eye(4))
-        m_cut_fn = prefix + suffix + fmt
-        nib.save(mask_cut_nifti, os.path.join(path_tmp_vesselseg_out_cut, m_cut_fn))
-        # clean mask
-        mask_cut_clean = morphology.remove_small_objects(mask_cut.astype(bool),
-                                                         h_params["post_segmentation"]["min_size"]).astype(float)
-        prefix = m_fn.name.split('.')[0]
-        suffix = "_cut_clean"
-        mask_cut_clean_nifti = nib.Nifti1Image(mask_cut_clean, np.eye(4))
-        m_cut_clean_fn = prefix + suffix + fmt
-        nib.save(mask_cut_clean_nifti, os.path.join(path_tmp_vesselseg_out_cut_clean, m_cut_clean_fn))
+        for fn in tqdm(filenames, total=num_samples):
+            fn = str(fn)
+            data = feats.preprocess_data(feats_utils.get_itk_array(fn))
+            img = feats_utils.get_itk_image(fn)
+            prefix = os.path.basename(fn).split('.')[0]
+            cen = feats.extract_centerlines(segmentation=data)
+            rad = feats.extract_radius(segmentation=data, centerlines=cen)
+            ofn = os.path.join(path_tmp_ves_sap, prefix + rad_suffix + fmt)
+            feats.save_data(data=rad, img=img, filename=ofn)
 
-    ###################################################################
-    # SKELETA EXTRACTION
-    ###################################################################
-    print('\n----------------------------------------')
-    print('Extracting skeleta ...')
-    print('----------------------------------------')
-    # extract and vesSAP features
-    filenames = pathlib.Path(path_tmp_vesselseg_out_cut).glob("*")
-    rad_suffix = "_rads"
-    fmt = '.nii.gz'
-    for fn in tqdm(filenames, total=num_samples):
-        fn = str(fn)
-        data = feats.preprocess_data(feats_utils.get_itk_array(fn))
-        img = feats_utils.get_itk_image(fn)
-        prefix = os.path.basename(fn).split('.')[0]
-        cen = feats.extract_centerlines(segmentation=data)
-        rad = feats.extract_radius(segmentation=data, centerlines=cen)
-        ofn = os.path.join(path_tmp_ves_sap, prefix + rad_suffix + fmt)
-        feats.save_data(data=rad, img=img, filename=ofn)
+        ###################################################################
+        # METRIC GRAPH RECONSTRUCTION
+        ###################################################################
+        path = pathlib.Path(f"{path_tmp_ves_sap}/*_rads.nii.gz")
+        filenames = list(sorted(pathlib.Path(path.parent).expanduser().glob(path.name)))
+        if len(filenames) < n_jobs:
+            n_jobs = len(filenames)
+        print('\n----------------------------------------')
+        print(f'Reconstructing metric graph with {n_jobs} job(s) ...')
+        print('----------------------------------------')
+        print('This may take a while ;)')
 
-    ###################################################################
-    # METRIC GRAPH RECONSTRUCTION
-    ###################################################################
-    path = pathlib.Path(f"{path_tmp_ves_sap}/*_rads.nii.gz")
-    filenames = list(sorted(pathlib.Path(path.parent).expanduser().glob(path.name)))
-    if len(filenames) < n_jobs:
-        n_jobs = len(filenames)
-    print('\n----------------------------------------')
-    print(f'Reconstructing metric graph with {n_jobs} job(s) ...')
-    print('----------------------------------------')
-    print('This may take a while ;)')
+        # split filenames by #workers to parallelize metric graph extraction (https://stackoverflow.com/a/2135920/12109823)
+        def split(a, n):
+            k, m = divmod(len(a), n)
+            return (a[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(n))
+        filenames = list(split(filenames, n_jobs))
+        processes = []
+        for i in range(n_jobs):
+            p = multiprocessing.Process(target=metric_graph.run_reconstruction, args=(filenames[i],
+                                                                                      path_visualization_metric_graph,
+                                                                                      path_tmp_metric_graph))
+            processes.append(p)
+            p.start()
+        for p in processes:
+            p.join()
 
-    # split filenames by #workers to parallelize metric graph extraction (https://stackoverflow.com/a/2135920/12109823)
-    def split(a, n):
-        k, m = divmod(len(a), n)
-        return (a[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(n))
-    filenames = list(split(filenames, n_jobs))
-    processes = []
-    for i in range(n_jobs):
-        p = multiprocessing.Process(target=metric_graph.run_reconstruction, args=(filenames[i],
-                                                                                  path_visualization_metric_graph,
-                                                                                  path_tmp_metric_graph))
-        processes.append(p)
-        p.start()
-    for p in processes:
-        p.join()
+        ###################################################################
+        # EXTRACT GRAPH FEATURES
+        ###################################################################
+        print('\n----------------------------------------')
+        print('Extracting graph features ...')
+        print('----------------------------------------')
+        # extract features from metric graph
+        metric_graph_features_df = metric_graph.get_features(path_tmp_metric_graph,
+                                                             path_visualization_metric_graph,
+                                                             h_params=h_params["metric_graph"])
 
-    ###################################################################
-    # EXTRACT GRAPH FEATURES
-    ###################################################################
-    print('\n----------------------------------------')
-    print('Extracting graph features ...')
-    print('----------------------------------------')
-    # extract features from metric graph
-    metric_graph_features_df = metric_graph.get_features(path_tmp_metric_graph,
-                                                         path_visualization_metric_graph,
-                                                         h_params=h_params["metric_graph"])
+        ###################################################################
+        # EXTRACT VOLUMETRIC FEATRUES
+        ###################################################################
+        print('\n----------------------------------------')
+        print('Extracting volumetric features ...')
+        print('----------------------------------------')
+        # extract pyradiomics and construct Pandas dataframe
+        image_filenames = pathlib.Path(path_tmp_vesselseg_prep_cut).glob("*")
+        features = dict()
+        for i_fn in tqdm(image_filenames, total=num_samples):
+            mask_filenames = pathlib.Path(path_tmp_vesselseg_out_cut_clean).glob('*')
+            m_fn = [str(m_fn) for m_fn in mask_filenames if "_".join(i_fn.name.split("_")[:3]) in m_fn.name][0]
+            i_fn = str(i_fn)
+            features[os.path.basename(i_fn)] = pyradiomics.get_pyradiomics_features(i_fn, m_fn)
+        pyradiomics_df = pd.DataFrame.from_dict(features)
 
-    ###################################################################
-    # EXTRACT VOLUMETRIC FEATRUES
-    ###################################################################
-    print('\n----------------------------------------')
-    print('Extracting volumetric features ...')
-    print('----------------------------------------')
-    # extract pyradiomics and construct Pandas dataframe
-    image_filenames = pathlib.Path(path_tmp_vesselseg_prep_cut).glob("*")
-    features = dict()
-    for i_fn in tqdm(image_filenames, total=num_samples):
-        mask_filenames = pathlib.Path(path_tmp_vesselseg_out_cut_clean).glob('*')
-        m_fn = [str(m_fn) for m_fn in mask_filenames if "_".join(i_fn.name.split("_")[:3]) in m_fn.name][0]
-        i_fn = str(i_fn)
-        features[os.path.basename(i_fn)] = pyradiomics.get_pyradiomics_features(i_fn, m_fn)
-    pyradiomics_df = pd.DataFrame.from_dict(features)
+        # label samples as patient or volunteer
+        is_patient = []
+        for column in pyradiomics_df.columns:
+            if "PAT" in column or "Pat" in column:
+                is_patient.append(1)
+            else:
+                is_patient.append(0)
+        pyradiomics_df = pyradiomics_df.T
+        pyradiomics_df["is_patient"] = is_patient
+        indexes = []
+        for idx in pyradiomics_df.index:
+            indexes.append("_".join(idx.split("_")[:3]))
+        pyradiomics_df.index = indexes
 
-    # label samples as patient or volunteer
-    is_patient = []
-    for column in pyradiomics_df.columns:
-        if "PAT" in column or "Pat" in column:
-            is_patient.append(1)
+        # save to tmp dir
+        pyradiomics_df.to_csv(path_tmp_pyradiomics + "/pyradiomics.csv")
+
+    if not h_params["only_visualization"]:
+        ###################################################################
+        # EXTRACT EPIDERMAL FEATURES
+        ###################################################################
+        print('\n----------------------------------------')
+        print('Extracting epidermal features ...')
+        print('----------------------------------------')
+        # extract minimal width of epidermis
+        layerseg_in_filenames = pathlib.Path(path_tmp_layerseg_prep).glob("*.nii.gz")
+        layerseg_out_filenames = pathlib.Path(path_tmp_layerseg_out).glob("*.nii.gz")
+        columns = ["filename", "epidermis_width"]
+        rows = []
+        for fn_in, fn_out in tqdm(zip(layerseg_in_filenames, layerseg_out_filenames), total=num_samples):
+            layerseg_out = nib.load(str(fn_out)).get_fdata()
+            # compute average width of epidermis in micrometer
+            width = ((layerseg_out.sum() / layerseg_out.shape[0]) / layerseg_out.shape[1]) * 3
+            rows.append(("_".join(fn_out.name.split("_")[:3]), width))
+
+        epidermis_width_df = pd.DataFrame(rows, columns=columns)
+        epidermis_width_df = epidermis_width_df.set_index('filename')
+
+        ###################################################################
+        # CONSTRUCT FEATURE CSV
+        ###################################################################
+        # combine metric graph features, pyradiomics features and epidermis width
+        if h_params["only_epidermal_features"]:
+            df = epidermis_width_df
         else:
-            is_patient.append(0)
-    pyradiomics_df = pyradiomics_df.T
-    pyradiomics_df["is_patient"] = is_patient
-    indexes = []
-    for idx in pyradiomics_df.index:
-        indexes.append("_".join(idx.split("_")[:3]))
-    pyradiomics_df.index = indexes
+            df = pd.concat([metric_graph_features_df, pyradiomics_df, epidermis_width_df], axis=1)
 
-    # save to tmp dir
-    pyradiomics_df.to_csv(path_tmp_pyradiomics + "/pyradiomics.csv")
+        # drop rows of samples, which have been detected as noise
+        df = df.dropna()
 
-    ###################################################################
-    # EXTRACT EPIDERMAL FEATURES
-    ###################################################################
-    print('\n----------------------------------------')
-    print('Extracting epidermal features ...')
-    print('----------------------------------------')
-    # extract minimal width of epidermis
-    layerseg_in_filenames = pathlib.Path(path_tmp_layerseg_prep).glob("*.nii.gz")
-    layerseg_out_filenames = pathlib.Path(path_tmp_layerseg_out).glob("*.nii.gz")
-    columns = ["filename", "epidermis_width", "epidermal_signal_density"]
-    rows = []
-    for fn_in, fn_out in tqdm(zip(layerseg_in_filenames, layerseg_out_filenames), total=num_samples):
-        layerseg_in = nib.load(str(fn_in)).get_data()
-        layerseg_out = nib.load(str(fn_out)).get_fdata()
-        esd = ((layerseg_in["R"] + layerseg_in["G"]) * layerseg_out).sum() / layerseg_out.sum()
-        # compute average width of epidermis in micrometer
-        width = ((layerseg_out.sum() / layerseg_out.shape[0]) / layerseg_out.shape[1]) * 3
-        rows.append(("_".join(fn_out.name.split("_")[:3]), width, esd))
+        # encode label
+        if not h_params["only_epidermal_features"]:
+            df = df.astype({'is_patient': 'int32'})
 
-    epidermis_width_df = pd.DataFrame(rows, columns=columns)
-    epidermis_width_df = epidermis_width_df.set_index('filename')
-
-    ###################################################################
-    # CONSTRUCT FEATURE CSV
-    ###################################################################
-    # combine metric graph features, pyradiomics features and epidermis width
-    df = pd.concat(
-        [metric_graph_features_df, pyradiomics_df, epidermis_width_df], axis=1)
-
-    # drop rows of samples, which have been detected as noise
-    noisy_samples = pd.isnull(df).any(1).to_numpy().nonzero()
-    df = df.dropna()
-
-    # encode label
-    df = df.astype({'is_patient': 'int32'})
-
-    # save dict as csv
-    df.to_csv(f"{dirs['output']}/features.csv")
-    print(f"Features were successfully saved to {dirs['output']}/features.csv")
-
-    # log all settings for reproducibility
-    out = (
-        f"DIRS:\n"
-        f"{json.dumps(dirs, indent=4, sort_keys=True)}\n"
-        f"H_PARAMS:\n"
-        f"{json.dumps(h_params, indent=4, sort_keys=True)}\n"
-        f"EXCLUDED_FILES:\n"
-        f"{noisy_samples}"
-    )
-    log_file = datetime.now().strftime('%H_%M_%d_%m_%Y.log')
-    f = open(f"{dirs['output']}/{log_file}", "w+")
-    f.write(out)
-    f.close()
+        # save dict as csv
+        df.to_csv(f"{dirs['output']}/features.csv")
+        print(f"Features were successfully saved to {dirs['output']}/features.csv")
 
     if delete_tmp:
         shutil.rmtree(os.path.join(dirs['output'], 'tmp'))
@@ -425,22 +436,23 @@ if __name__ == '__main__':
         },
         "post_segmentation": {
             'min_size': 1000,
-            'epidermis_offset': 30,
-            'roi_z': 130,
+            'epidermis_offset': 0,
+            'roi_z': 500,
         },
         "metric_graph": {
             'min_component_length': 50,
             'min_end_branch_length': 20,
-            'min_total_length': 300
+            'min_total_length': 0
         },
         "visualization": {
             'show_roi': False,
             'show_preprocessing_results': True
-        }
+        },
+        "only_epidermal_features": False,
+        "only_visualization": False
     }
 
     dirs = {k: os.path.expanduser(v) for k, v in dirs.items()}
-
     vessel_pipeline(dirs=dirs,
                     h_params=h_params,
                     device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'),

@@ -78,6 +78,9 @@ class Rsom():
         # extract low frequency Volume
         self.Vl = self.matfileLF['R']
 
+        where_are_NaNs = np.isnan(self.Vh)
+        self.Vh[where_are_NaNs] = 0
+
         # load surface data
         try:
             self.matfileSURF = sio.loadmat(self.file.SURF)
@@ -178,7 +181,6 @@ class Rsom():
             do_plot = True. Plot into figure
             cut     = cut from volume in z direction
                       needed for on top view without epidermis
-
         '''
         axis = int(axis)
         if axis > 2:
@@ -255,6 +257,8 @@ class Rsom():
         save rgb volume
         '''
 
+        print(self.Vm.max())
+
         self.Vm = exposure.rescale_intensity(self.Vm, out_range=np.uint8)
 
         # Vm is a 4-d numpy array, with the last dim holding RGB
@@ -282,7 +286,6 @@ class Rsom():
                                    '_' +
                                    fstr +
                                    '.nii.gz')).resolve()
-        # print(str(nii_file))
 
         nib.save(img, str(nii_file))
 
@@ -306,14 +309,81 @@ class RsomVessel(Rsom):
     e.g. cut away epidermis
     '''
 
-    def prepare(self, path, mode='pred', fstr='pred.nii.gz'):
+    def prepare(self, path, mode='pred', fstr='pred.nii.gz', only_visualization=False):
         self.read_matlab()
         self.flat_surface()
         self.cut_depth()
-        self.cut_layer(path, mode=mode, fstr=fstr)
+        if only_visualization:
+            self.mask_and_cut_layer(path, offset=0, fstr=fstr)
+        else:
+            self.cut_layer(path, mode=mode, fstr=fstr)
         self.norm_intensity()
         self.rescale_intensity()
         self.merge_volume_rgb()
+
+    def mask_and_cut_layer(self, path, offset=10, fstr=''):
+        filename = 'R' + self.file.DATETIME + self.file.ID + '_' + fstr
+        file = os.path.join(path, filename)
+
+        print('Loading', file)
+
+        img = nib.load(file)
+        self.S = img.get_fdata()
+        self.S = self.S.astype(np.uint8)
+
+        assert self.Vl.shape == self.S.shape, 'Shapes of raw and segmentation do not match'
+
+        print(self.Vl.shape)
+        print(self.S.shape)
+
+        # use projection to 1D to estimate start and end of epidermis in z-direction
+        label_sum = np.sum(self.S, axis=(1, 2))
+        max_occupation = np.amax(label_sum) / (self.S.shape[1] * self.S.shape[2])
+        max_occupation_idx = np.argmax(label_sum)
+        print('Max occ', max_occupation)
+        print('idx max occ', max_occupation_idx)
+        if max_occupation >= 0.01:
+            # normalize
+            label_sum = label_sum.astype(np.double) / np.amax(label_sum)
+
+            # define cutoff parameter
+            cutoff = 0.05
+
+            label_sum_bin = label_sum > cutoff
+            label_sum_idx = np.squeeze(np.nonzero(label_sum_bin))
+            projection_start = label_sum_idx[0]
+            projection_end = label_sum_idx[-1]
+        else:
+            print("WARNING:  Could not determine valid epidermis layer.", filename)
+            projection_start = 0
+            projection_end = 0
+
+        # for every x and y, calculate index up to which to mask the epidermis,
+        # as the maximum of the middle of the epidermis in the 1D projection
+        projection_mid = projection_start + (projection_end - projection_start) / 2
+        # and the actual segmentation. (aims to be robust against holes in the epidermis)
+
+        mask_indices = []
+        for x in np.arange(self.S.shape[1]):
+            for y in np.arange(self.S.shape[2]):
+                nz = np.nonzero(self.S[:, x, y])[0]
+                if len(nz) > 0:
+                    epidermis_end = nz[-1]
+                    mask_idx = max(projection_mid, epidermis_end) + offset
+                else:
+                    print("WARNING:  Could not determine valid epidermis layer.", filename)
+                    mask_idx = 0
+
+                self.Vl[:mask_idx, x, y] = 0
+                self.Vh[:mask_idx, x, y] = 0
+                # accumulate cut indices
+                mask_indices.append(mask_idx)
+
+        # choose minimum of the mask_indices as where to cut the volume
+        self.layer_end = min(mask_indices)
+        # cut away
+        self.Vl = self.Vl[self.layer_end:, :, :]
+        self.Vh = self.Vh[self.layer_end:, :, :]
 
     def cut_layer(self, path, mode='pred', fstr='layer_pred.nii.gz'):
         '''
@@ -356,7 +426,6 @@ class RsomVessel(Rsom):
                 layer_end = label_sum_idx[-1]
 
                 # additional fixed pixel offset
-                # due to noise (reflection or poorly cut epidermis + 20)
                 offs = 10
                 layer_end += offs
             else:
@@ -399,7 +468,6 @@ class RsomVisualization(Rsom):
     def load_seg(self, filename):
         '''
         load segmentation file (can be labeled or predicted)
-
         '''
         return (self.loadNII(filename)).astype(np.uint8)
 
@@ -435,6 +503,38 @@ class RsomVisualization(Rsom):
         self.axis_P = axis
         self.P_seg = mip
 
+    def merge_mip_ves_(self, z0, post_processing_params, show_roi=True, do_plot=True):
+        '''
+        merge MIP and MIP of segmentation with feeding into blue channel
+        '''
+
+        P_seg = self.P_seg.astype(np.float32)
+        P_seg_edge = filters.sobel(P_seg)
+        P_seg_edge = P_seg_edge / np.amax(P_seg_edge)
+
+        # feed into blue channel
+        # enhanced edges
+        blue = 150 * P_seg + 30 * P_seg_edge
+
+        self.P_overlay = self.P_seg.copy().astype(np.float32)
+        self.P_overlay[:, :, 2] += blue
+        self.P_overlay[:, :, :1] = 0
+
+        if show_roi:
+            z = (z0 + post_processing_params["epidermis_offset"],
+                 z0 + post_processing_params["epidermis_offset"] + post_processing_params["roi_z"])
+            # mark ROI in pink
+            roi = np.zeros_like(self.P_seg)
+            roi[z[0]:z[1], :] = 1
+            self.P_overlay = _overlay(self.P_overlay, roi.astype(np.float32), colour=[255, 0, 255],
+                                      alpha=0.8)
+
+        if do_plot:
+            plt.figure()
+            plt.imshow(self.P)
+            plt.title(str(self.file.ID))
+            plt.show()
+
     def merge_mip_ves(self, z0, post_processing_params, show_roi=True, do_plot=True):
         '''
         merge MIP and MIP of segmentation with feeding into blue channel
@@ -459,7 +559,7 @@ class RsomVisualization(Rsom):
             roi = np.zeros_like(self.P_seg)
             roi[z[0]:z[1], :] = 1
             self.P_overlay = _overlay(self.P_overlay, roi.astype(np.float32), colour=[255, 0, 255],
-                                      alpha=0.5)
+                                      alpha=0.8)
 
         if do_plot:
             plt.figure()
@@ -467,10 +567,17 @@ class RsomVisualization(Rsom):
             plt.title(str(self.file.ID))
             plt.show()
 
-    def merge_mip_lay(self, do_plot=True):
+    def merge_mip_lay(self, do_plot=True, only_epidermal_features=False):
         '''
         merge MIP and MIP of segmentation with feeding into blue channel
         '''
+        # account for only epidermal features case
+        if only_epidermal_features:
+            self.P_overlay = self.P.copy().astype(np.float32)
+
+        # account for overlayed vessel and epidermis segemntation
+        #self.P_overlay[:, :, 2] = ((np.logical_not(self.P_seg)) * self.P_overlay[:, :, 2])
+
         # use a semitransparent overlay
         self.P_overlay = _overlay(self.P_overlay, self.P_seg.astype(np.float32),
                                   alpha=0.5)

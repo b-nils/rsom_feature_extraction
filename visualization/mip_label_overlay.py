@@ -6,7 +6,8 @@ from prep import RsomVisualization
 from utils import get_unique_filepath
 
 
-def mip_label_overlay(file_ids, dirs, post_processing_params, visualization_params, plot_epidermis=False):
+def mip_label_overlay(file_ids, dirs, post_processing_params, visualization_params, plot_epidermis=False,
+                      plot_ves_seg=True):
 
     mat_dir = dirs['in']
     seg_dir_lay = dirs['layer']
@@ -31,11 +32,12 @@ def mip_label_overlay(file_ids, dirs, post_processing_params, visualization_para
                            plot_epidermis=plot_epidermis,
                            axis=-1,
                            return_img=False,
+                           plot_ves_seg=plot_ves_seg
                            )
 
 
 def mip_label_overlay1(file_id, dirs, post_processing_params, visualization_params,
-                       plot_epidermis=False, axis=-1, return_img=False):
+                       plot_epidermis=False, axis=-1, return_img=False, plot_ves_seg=True):
     """
     axis=-1 means all axes
     """
@@ -75,6 +77,7 @@ def mip_label_overlay1(file_id, dirs, post_processing_params, visualization_para
         sample.merge_mip_ves(z0=z0, post_processing_params=post_processing_params,
                              show_roi=visualization_params["show_roi"],
                              do_plot=False)
+
         if return_img:
             return sample.return_mip()
         else:
@@ -83,15 +86,19 @@ def mip_label_overlay1(file_id, dirs, post_processing_params, visualization_para
         # axis = 1
         axis_ = 1
         sample.calc_mip(axis=axis_, do_plot=False, cut_z=0)
-        sample.calc_mip_ves_seg(seg=seg_file_ves, axis=axis_, padding=(z0, 0),
-                                show_post_processing_result=visualization_params['show_preprocessing_results'],
-                                min_size=post_processing_params["min_size"])
-        sample.merge_mip_ves(z0=z0, post_processing_params=post_processing_params,
-                             show_roi=visualization_params["show_roi"],
-                             do_plot=False)
+
+        if plot_ves_seg:
+            sample.calc_mip_ves_seg(seg=seg_file_ves, axis=axis_, padding=(z0, 0),
+                                    show_post_processing_result=visualization_params['show_preprocessing_results'],
+                                    min_size=post_processing_params["min_size"])
+            sample.merge_mip_ves(z0=z0, post_processing_params=post_processing_params,
+                                 show_roi=visualization_params["show_roi"],
+                                 do_plot=False)
+
         if plot_epidermis:
             sample.calc_mip_lay_seg(seg=seg_file_lay, axis=axis_, padding=(0, 0))
-            sample.merge_mip_lay(do_plot=False)
+            sample.merge_mip_lay(do_plot=False, only_epidermal_features=not plot_ves_seg)
+
         if return_img:
             return sample.return_mip()
         else:
@@ -100,15 +107,19 @@ def mip_label_overlay1(file_id, dirs, post_processing_params, visualization_para
     if axis == -1 or axis == 2:
         axis_ = 2
         sample.calc_mip(axis=axis_, do_plot=False, cut_z=0)
-        sample.calc_mip_ves_seg(seg=seg_file_ves, axis=axis_, padding=(z0, 0),
-                                show_post_processing_result=visualization_params['show_preprocessing_results'],
-                                min_size=post_processing_params["min_size"])
-        sample.merge_mip_ves(z0=z0, post_processing_params=post_processing_params,
-                             show_roi=visualization_params["show_roi"],
-                             do_plot=False)
+
+        if plot_ves_seg:
+            sample.calc_mip_ves_seg(seg=seg_file_ves, axis=axis_, padding=(z0, 0),
+                                    show_post_processing_result=visualization_params['show_preprocessing_results'],
+                                    min_size=post_processing_params["min_size"])
+            sample.merge_mip_ves(z0=z0, post_processing_params=post_processing_params,
+                                 show_roi=visualization_params["show_roi"],
+                                 do_plot=False)
+
         if plot_epidermis:
             sample.calc_mip_lay_seg(seg=seg_file_lay, axis=axis_, padding=(0, 0))
-            sample.merge_mip_lay(do_plot=False)
+            sample.merge_mip_lay(do_plot=False, only_epidermal_features=not plot_ves_seg)
+
         if return_img:
             return sample.return_mip()
         else:

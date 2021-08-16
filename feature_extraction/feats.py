@@ -79,7 +79,7 @@ def extract_radius(segmentation, centerlines):
 
 def preprocess_data(data):
     data = data.astype(np.int)
-    data = ndi.binary_closing(data, iterations=1).astype(np.int)
+    data = ndi.binary_closing(data, iterations=2).astype(np.int)
     data = np.asarray(ndi.binary_fill_holes(data), dtype='uint8')
     return data
 
