@@ -72,7 +72,8 @@ def extract_bifurcations(centerlines):
 def extract_radius(segmentation, centerlines):
     image = segmentation
     skeleton = centerlines
-    transf = ndi.distance_transform_edt(image,return_indices=False)
+    # TODO: dircetly return euclidean distance in micrometers
+    transf = ndi.distance_transform_edt(image,return_indices=False)# , sampling=[3, 12, 12]) 
     radius_matrix = transf*skeleton
     return radius_matrix
 
