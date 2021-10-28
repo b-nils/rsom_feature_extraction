@@ -391,7 +391,7 @@ def vessel_pipeline(dirs,
         for fn_in, fn_out in tqdm(zip(layerseg_in_filenames, layerseg_out_filenames), total=num_samples):
             layerseg_out = nib.load(str(fn_out)).get_fdata()
             # compute average width of epidermis in micrometer
-            width = ((layerseg_out.sum() / layerseg_out.shape[0]) / layerseg_out.shape[1]) * 3
+            width = ((layerseg_out.sum() / layerseg_out.shape[1]) / layerseg_out.shape[2]) * 3
             rows.append(("_".join(fn_out.name.split("_")[:3]), width))
 
         epidermis_width_df = pd.DataFrame(rows, columns=columns)
