@@ -20,7 +20,7 @@ def get_pyradiomics_features(i_fn, m_fn):
     shape = rs.RadiomicsShape(image, mask)
 
     # voxel volume in micrometer³
-    features["total_blood_volume"] = (((shape.getVoxelVolumeFeatureValue() / 12) / 12) / 3)
+    features["total_blood_volume"] = shape.getVoxelVolumeFeatureValue() * 12 * 12 * 3 / 1000000000
 
     # avoid division by zero
     if features["total_blood_volume"] == 0:
